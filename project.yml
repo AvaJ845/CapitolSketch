@@ -1,0 +1,183 @@
+name: CapitolSketch
+
+# NOTE: the xcodegen on this machine is a standalone binary with no SettingPresets
+# resource bundle beside it, so it contributes *no* default build settings — it even
+# leaves SWIFT_VERSION empty. Every setting an iOS app target needs is therefore
+# written out explicitly below. Do not trim these back to the usual short spec
+# assuming Xcode's defaults will fill in; they will not, and the failure mode is a
+# confusing "unable to resolve module dependency" caused by the app building x86_64
+# while its Swift package builds arm64.
+
+options:
+  bundleIdPrefix: com.avaresearch
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Release: release
+
+packages:
+  DisclosureKit:
+    path: Packages/DisclosureKit
+
+targets:
+  CapitolSketch:
+    type: application
+    platform: iOS
+    sources:
+      - path: CapitolSketch
+      - path: Shared
+    dependencies:
+      - package: DisclosureKit
+        product: DisclosureKit
+      - target: CapitolSketchWidget
+    settings:
+      base:
+        PRODUCT_NAME: CapitolSketch
+        PRODUCT_BUNDLE_IDENTIFIER: com.avaresearch.capitolsketch
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ARCHS: "$(ARCHS_STANDARD)"
+
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_EMIT_LOC_STRINGS: YES
+        CLANG_ENABLE_OBJC_ARC: YES
+        CLANG_ENABLE_MODULES: YES
+        ENABLE_PREVIEWS: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CapitolSketch/Info.plist
+
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: NO
+      configs:
+        Debug:
+          ONLY_ACTIVE_ARCH: YES
+          ENABLE_TESTABILITY: YES
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          GCC_OPTIMIZATION_LEVEL: "0"
+          GCC_PREPROCESSOR_DEFINITIONS: "DEBUG=1 $(inherited)"
+          DEBUG_INFORMATION_FORMAT: dwarf
+        Release:
+          ONLY_ACTIVE_ARCH: NO
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+          SWIFT_COMPILATION_MODE: wholemodule
+          DEBUG_INFORMATION_FORMAT: "dwarf-with-dsym"
+          VALIDATE_PRODUCT: YES
+    entitlements:
+      path: CapitolSketch/CapitolSketch.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.avaresearch.capitolsketch
+    info:
+      path: CapitolSketch/Info.plist
+      properties:
+        # Home-screen name. Swift never spells the product name out, so renaming
+        # the icon label is a one-line change here.
+        CFBundleDisplayName: CapitolSketch
+        CFBundleName: CapitolSketch
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+        NSUserNotificationsUsageDescription: >-
+          Notifications restate a public House filing when a ticker you watch
+          appears in one. The list of tickers never leaves this phone.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.avaresearch.capitolsketch
+            CFBundleURLSchemes:
+              - capitolsketch
+
+  CapitolSketchWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: CapitolSketchWidget
+      - path: Shared
+    dependencies:
+      - package: DisclosureKit
+        product: DisclosureKit
+    settings:
+      base:
+        PRODUCT_NAME: CapitolSketchWidget
+        PRODUCT_BUNDLE_IDENTIFIER: com.avaresearch.capitolsketch.widget
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ARCHS: "$(ARCHS_STANDARD)"
+
+        SWIFT_VERSION: "5.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        CLANG_ENABLE_OBJC_ARC: YES
+        CLANG_ENABLE_MODULES: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        SKIP_INSTALL: YES
+
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: CapitolSketchWidget/Info.plist
+
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: NO
+      configs:
+        Debug:
+          ONLY_ACTIVE_ARCH: YES
+          ENABLE_TESTABILITY: YES
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          GCC_OPTIMIZATION_LEVEL: "0"
+          DEBUG_INFORMATION_FORMAT: dwarf
+        Release:
+          ONLY_ACTIVE_ARCH: NO
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+          SWIFT_COMPILATION_MODE: wholemodule
+          DEBUG_INFORMATION_FORMAT: "dwarf-with-dsym"
+          VALIDATE_PRODUCT: YES
+    entitlements:
+      path: CapitolSketchWidget/CapitolSketchWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.avaresearch.capitolsketch
+    info:
+      path: CapitolSketchWidget/Info.plist
+      properties:
+        CFBundleDisplayName: CapitolSketch
+        CFBundleName: CapitolSketchWidget
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+schemes:
+  CapitolSketch:
+    build:
+      targets:
+        CapitolSketch: all
+        CapitolSketchWidget: all
+    run:
+      config: Debug
+    test:
+      config: Debug
