@@ -17,9 +17,9 @@ struct TagChip: View {
             }
             Text(text).font(.caption2.weight(.medium))
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 5))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(.fill.quaternary, in: Capsule())
         .foregroundStyle(tint == .secondary ? AnyShapeStyle(.secondary) : AnyShapeStyle(tint))
         .fixedSize()
     }
@@ -30,37 +30,45 @@ struct EmptyStateView: View {
     let icon: String
     let title: String
     let message: String
+    var actionTitle: String?
+    var action: (() -> Void)?
 
     var body: some View {
         ContentUnavailableView {
             Label(title, systemImage: icon)
         } description: {
             Text(message)
+        } actions: {
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Ink.accent)
+            }
         }
     }
 }
 
-/// The 45-day window, restated wherever filings are listed.
+/// The 45-day window, restated as a pull-quote rather than a banner dump.
 struct DisclosureLagNote: View {
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "clock.arrow.circlepath")
-                .foregroundStyle(.orange)
+        HStack(alignment: .top, spacing: 0) {
+            Ink.lag
+                .frame(width: 3)
             Text(Copy.lagBanner)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
         }
-        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 9))
+        .background(Ink.lag.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityElement(children: .combine)
     }
 }
 
 /// The age of the data in hand, shown wherever filings are.
-///
-/// The app never implies it is current. It says when the snapshot was assembled, every
-/// time, because "how old is this" is the first thing a reader should be able to answer.
 struct DataAgeLine: View {
     let generatedAt: Date?
 
@@ -85,5 +93,73 @@ struct DataAgeLine: View {
         case 1: return "1 day old"
         default: return "\(days) days old"
         }
+    }
+}
+
+/// Initials in a navy disc. Used on the members list so rows have a face without photos.
+struct MonogramView: View {
+    let name: String
+
+    private var initials: String {
+        let parts = name.split(separator: " ").filter { !$0.hasSuffix(".") }
+        let letters = parts.suffix(2).compactMap { $0.first }
+        let s = String(letters).uppercased()
+        return s.isEmpty ? "—" : s
+    }
+
+    var body: some View {
+        Text(initials)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Ink.badgeOnFill)
+            .frame(width: 36, height: 36)
+            .background(Ink.badgeFill, in: Circle())
+            .accessibilityHidden(true)
+    }
+}
+
+/// Three or four headline numbers in a single row.
+struct StatStrip: View {
+    let items: [(label: String, value: String)]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                VStack(spacing: 4) {
+                    Text(item.value)
+                        .font(.title3.weight(.semibold).monospacedDigit())
+                    Text(item.label)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                if index < items.count - 1 {
+                    Divider().frame(height: 28)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// Horizontal ticker pills used on Watchlist and member pages.
+struct TickerChip: View {
+    let ticker: String
+    var count: Int?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(ticker)
+                .font(.subheadline.weight(.semibold).monospaced())
+            if let count {
+                Text("\(count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Ink.navy.opacity(0.08), in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.navy.opacity(0.18), lineWidth: 0.5))
     }
 }

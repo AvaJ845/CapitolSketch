@@ -21,18 +21,24 @@ struct WatchlistView: View {
                     EmptyStateView(
                         icon: "star",
                         title: "Watch your own holdings",
-                        message: "Add the tickers you own and this tab will show you every time a House member discloses a trade in them."
+                        message: "Add the tickers you own and this tab will show you every time a House member discloses a trade in them.",
+                        actionTitle: "Add a ticker",
+                        action: { showingAdd = true }
                     )
                 } else {
                     List {
                         Section {
                             tickerChips
+                                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                         }
 
                         if !newMatches.isEmpty {
                             Section("New since you last looked") {
                                 ForEach(newMatches) { trade in
                                     NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                                        .disclosureRowChrome()
                                 }
                             }
                         }
@@ -42,19 +48,24 @@ struct WatchlistView: View {
                                 Text("No House member has disclosed a trade in these tickers.")
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
+                                    .listRowBackground(Ink.card)
                             } else {
                                 ForEach(matches.prefix(300)) { trade in
                                     NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                                        .disclosureRowChrome()
                                 }
                             }
                         }
 
                         Section {
                             DisclosureLagNote()
-                                .listRowInsets(.init(top: 4, leading: 8, bottom: 4, trailing: 8))
+                                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
                                 .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                         }
                     }
+                    .listStyle(.insetGrouped)
+                    .gazetteChrome()
                 }
             }
             .navigationTitle("Watchlist")
@@ -66,7 +77,7 @@ struct WatchlistView: View {
                 }
             }
             .sheet(isPresented: $showingAdd) {
-                AddTickerView().presentationDetents([.large])
+                AddTickerView().presentationDetents([.large]).tint(Ink.accent)
             }
             .task { refreshNewMatches() }
             .onChange(of: watchlist.tickers) { refreshNewMatches() }
@@ -80,15 +91,7 @@ struct WatchlistView: View {
                     NavigationLink {
                         TickerDetailView(ticker: ticker)
                     } label: {
-                        HStack(spacing: 5) {
-                            Text(ticker).font(.subheadline.weight(.semibold))
-                            Text("\(store.trades(forTicker: ticker).count)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 7)
-                        .background(.tint.opacity(0.12), in: Capsule())
+                        TickerChip(ticker: ticker, count: store.trades(forTicker: ticker).count)
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
@@ -102,7 +105,6 @@ struct WatchlistView: View {
             }
             .padding(.vertical, 2)
         }
-        .listRowInsets(.init(top: 8, leading: 16, bottom: 8, trailing: 16))
     }
 
     /// Surfaces unseen matches, then marks them seen so the section clears next visit.
@@ -149,13 +151,13 @@ struct AddTickerView: View {
                             add(item.ticker)
                         } label: {
                             HStack {
-                                Text(item.ticker).font(.body.weight(.medium))
+                                Text(item.ticker).font(.body.weight(.medium).monospaced())
                                 Spacer()
                                 Text("\(item.count) trades")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 if watchlist.contains(item.ticker) {
-                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint)
+                                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Ink.accent)
                                 }
                             }
                         }

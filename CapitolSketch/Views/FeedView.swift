@@ -61,15 +61,18 @@ struct FeedView: View {
                 } else {
                     List {
                         Section {
+                            masthead
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+
+                        Section {
                             ForEach(results.prefix(400)) { trade in
                                 NavigationLink(value: trade) {
                                     DisclosureRow(trade: trade)
                                 }
-                            }
-                        } header: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("\(results.count.formatted()) transactions")
-                                DataAgeLine(generatedAt: store.generatedAt)
+                                .disclosureRowChrome()
                             }
                         } footer: {
                             VStack(alignment: .leading, spacing: 8) {
@@ -82,7 +85,8 @@ struct FeedView: View {
                             .padding(.top, 4)
                         }
                     }
-                    .listStyle(.plain)
+                    .listStyle(.insetGrouped)
+                    .gazetteChrome()
                 }
             }
             .navigationTitle("Disclosures")
@@ -94,9 +98,7 @@ struct FeedView: View {
                     Button {
                         showingFilters = true
                     } label: {
-                        Image(systemName: filter.isActive
-                              ? "line.3.horizontal.decrease.circle.fill"
-                              : "line.3.horizontal.decrease.circle")
+                        FilterToolbarLabel(activeCount: filter.activeCount)
                     }
                     .accessibilityLabel(filter.isActive
                                         ? "Filters, \(filter.activeCount) active"
@@ -106,6 +108,33 @@ struct FeedView: View {
             .sheet(isPresented: $showingFilters) {
                 FilterSheet(filter: $filter)
                     .presentationDetents([.medium, .large])
+                    .tint(Ink.accent)
+            }
+        }
+    }
+
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(results.count.formatted()) transactions")
+                .font(.title3.weight(.semibold).monospacedDigit())
+            DataAgeLine(generatedAt: store.generatedAt)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct FilterToolbarLabel: View {
+    let activeCount: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: activeCount > 0
+                  ? "line.3.horizontal.decrease.circle.fill"
+                  : "line.3.horizontal.decrease.circle")
+            if activeCount > 0 {
+                Text("\(activeCount)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
             }
         }
     }
@@ -164,7 +193,7 @@ private struct FilterSheet: View {
             HStack {
                 Text(title).foregroundStyle(.primary)
                 Spacer()
-                if isOn { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                if isOn { Image(systemName: "checkmark").foregroundStyle(Ink.accent) }
             }
         }
     }

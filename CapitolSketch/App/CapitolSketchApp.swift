@@ -14,6 +14,7 @@ struct CapitolSketchApp: App {
                 .environment(watchlist)
                 .environment(appearance)
                 .preferredColorScheme(appearance.colorScheme)
+                .tint(Ink.accent)
                 .task { store.seedSharedContainerIfNeeded() }
         }
     }
@@ -52,6 +53,7 @@ struct RootView: View {
                 AboutView()
             }
         }
+        .tint(Ink.accent)
         .task {
             applyLaunchTabIfNeeded()
             await checkForWatchlistAlerts()

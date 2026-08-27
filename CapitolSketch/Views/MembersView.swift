@@ -25,19 +25,21 @@ struct MembersView: View {
                 Section {
                     ForEach(rows, id: \.member.id) { row in
                         NavigationLink(value: row.member) {
-                            HStack {
+                            HStack(spacing: 12) {
+                                MonogramView(name: row.member.name)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(row.member.name).font(.body.weight(.medium))
                                     Text("\(row.member.chamber.label) · \(row.member.seat)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                Spacer()
+                                Spacer(minLength: 8)
                                 Text("\(row.count)")
-                                    .font(.subheadline.monospacedDigit())
+                                    .font(.subheadline.weight(.medium).monospacedDigit())
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .disclosureRowChrome()
                     }
                 } header: {
                     Text("\(rows.count) members with disclosed trades")
@@ -45,6 +47,8 @@ struct MembersView: View {
                     Text("Counts are disclosed transactions in the loaded filing years, not portfolio size.")
                 }
             }
+            .listStyle(.insetGrouped)
+            .gazetteChrome()
             .navigationTitle("Members")
             .searchable(text: $query, prompt: "Name or state")
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
@@ -84,13 +88,12 @@ struct MemberDetailView: View {
     var body: some View {
         List {
             Section {
-                HStack(spacing: 0) {
-                    stat("Trades", "\(trades.count)")
-                    Divider()
-                    stat("Bought", "\(buys)")
-                    Divider()
-                    stat("Sold", "\(sells)")
-                }
+                StatStrip(items: [
+                    ("Trades", "\(trades.count)"),
+                    ("Bought", "\(buys)"),
+                    ("Sold", "\(sells)"),
+                ])
+                .listRowBackground(Ink.card)
             }
 
             if !topTickers.isEmpty {
@@ -101,21 +104,14 @@ struct MemberDetailView: View {
                                 NavigationLink {
                                     TickerDetailView(ticker: item.ticker)
                                 } label: {
-                                    VStack(spacing: 2) {
-                                        Text(item.ticker).font(.subheadline.weight(.semibold))
-                                        Text("\(item.count)")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 9))
+                                    TickerChip(ticker: item.ticker, count: item.count)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
-                    .listRowInsets(.init(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
             }
 
@@ -124,18 +120,13 @@ struct MemberDetailView: View {
                     NavigationLink(value: trade) {
                         DisclosureRow(trade: trade, showsMember: false)
                     }
+                    .disclosureRowChrome()
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .gazetteChrome()
         .navigationTitle(member.name)
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func stat(_ label: String, _ value: String, tint: Color = .primary) -> some View {
-        VStack(spacing: 3) {
-            Text(value).font(.title3.weight(.semibold).monospacedDigit()).foregroundStyle(tint)
-            Text(label).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
