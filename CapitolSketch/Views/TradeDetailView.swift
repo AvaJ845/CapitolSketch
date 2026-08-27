@@ -17,7 +17,7 @@ struct DisclosureDetailView: View {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(trade.displaySymbol).font(.title2.weight(.bold))
+                        Text(trade.displaySymbol).font(.title2.weight(.bold).monospaced())
                         DirectionBadge(type: trade.txType)
                     }
                     Text(trade.cleanAssetName)
@@ -29,6 +29,7 @@ struct DisclosureDetailView: View {
                         .padding(.top, 2)
                 }
                 .padding(.vertical, 4)
+                .listRowBackground(Ink.card)
             } footer: {
                 Text(Copy.rangesOnly)
             }
@@ -47,7 +48,7 @@ struct DisclosureDetailView: View {
                         systemImage: "exclamationmark.triangle"
                     )
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                        .foregroundStyle(Ink.lag)
                 } else {
                     HStack {
                         Text("Gap").foregroundStyle(.secondary)
@@ -55,7 +56,7 @@ struct DisclosureDetailView: View {
                         Text(trade.disclosureGapPhrase.replacingOccurrences(
                             of: "disclosed ", with: ""
                         ))
-                        .foregroundStyle(trade.isLateFiling ? .orange : .primary)
+                        .foregroundStyle(trade.isLateFiling ? Ink.lag : .primary)
                         .multilineTextAlignment(.trailing)
                     }
                     .font(.callout)
@@ -123,6 +124,8 @@ struct DisclosureDetailView: View {
                 Text("Filing ID \(trade.filingID) · US House Clerk, public domain.")
             }
         }
+        .listStyle(.insetGrouped)
+        .gazetteChrome()
         .navigationTitle("Disclosure")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -151,15 +154,13 @@ struct TickerDetailView: View {
     var body: some View {
         List {
             Section {
-                HStack(spacing: 0) {
-                    stat("Disclosures", "\(trades.count)")
-                    Divider()
-                    stat("Bought", "\(trades.filter { $0.txType == .buy }.count)")
-                    Divider()
-                    stat("Sold", "\(trades.filter { $0.txType != .buy }.count)")
-                    Divider()
-                    stat("Members", "\(Set(trades.map(\.memberID)).count)")
-                }
+                StatStrip(items: [
+                    ("Disclosures", "\(trades.count)"),
+                    ("Bought", "\(trades.filter { $0.txType == .buy }.count)"),
+                    ("Sold", "\(trades.filter { $0.txType != .buy }.count)"),
+                    ("Members", "\(Set(trades.map(\.memberID)).count)"),
+                ])
+                .listRowBackground(Ink.card)
             } footer: {
                 Text("Counts of disclosed transactions, not of shares or dollars. The form "
                      + "reports neither.")
@@ -174,25 +175,20 @@ struct TickerDetailView: View {
                         systemImage: watchlist.contains(ticker) ? "bell.fill" : "bell"
                     )
                 }
+                .listRowBackground(Ink.card)
             }
 
             Section("Disclosures") {
                 ForEach(trades.prefix(300)) { trade in
                     NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                        .disclosureRowChrome()
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .gazetteChrome()
         .navigationTitle(ticker)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
-    }
-
-    private func stat(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 3) {
-            Text(value).font(.headline.monospacedDigit())
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
     }
 }

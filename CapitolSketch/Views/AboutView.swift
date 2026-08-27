@@ -14,9 +14,15 @@ struct AboutView: View {
         NavigationStack {
             List {
                 Section {
-                    DisclosureLagNote()
-                        .listRowInsets(.init(top: 6, leading: 10, bottom: 6, trailing: 10))
+                    brandHeader
+                        .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16))
                         .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+
+                    DisclosureLagNote()
+                        .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
 
                 Section("Appearance") {
@@ -27,14 +33,14 @@ struct AboutView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityLabel("Appearance")
+                    .listRowBackground(Ink.card)
                 }
 
                 Section("What this app is") {
-                    principle("lock.shield", Copy.privateByDefault)
-                    principle("clock.arrow.circlepath", Copy.historyNotHeadlines)
-                    principle("arrow.left.and.right", Copy.rangesOnly)
-                    principle("bell.badge", Copy.oneAlert)
-                    principle("calendar", Copy.updatedDaily)
+                    ForEach(Copy.principles) { item in
+                        principle(item)
+                            .listRowBackground(Ink.card)
+                    }
                 }
 
                 Section("Alerts") {
@@ -50,6 +56,7 @@ struct AboutView: View {
                             }
                         }
                     ))
+                    .listRowBackground(Ink.card)
 
                     if watchlist.notificationsEnabled && notificationStatus == .denied {
                         Label(
@@ -57,7 +64,8 @@ struct AboutView: View {
                             systemImage: "exclamationmark.triangle"
                         )
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Ink.lag)
+                        .listRowBackground(Ink.card)
                     }
                 }
 
@@ -85,9 +93,10 @@ struct AboutView: View {
                     }
 
                     if let error = store.lastError {
-                        Text(error).font(.caption).foregroundStyle(.red)
+                        Text(error).font(.caption).foregroundStyle(Ink.lag)
                     }
                 }
+                .listRowBackground(Ink.card)
 
                 Section {
                     Link(destination: URL(string: "https://disclosures-clerk.house.gov/PublicDisclosure")!) {
@@ -103,10 +112,14 @@ struct AboutView: View {
                          ? "US House Clerk — Periodic Transaction Reports."
                          : store.feed.source)
                 }
+                .listRowBackground(Ink.card)
 
-                Section("Important") {
+                Section {
                     Text(Copy.noAdvice)
-                        .font(.callout)
+                        .font(.callout.weight(.medium))
+                        .listRowBackground(Ink.card)
+                } header: {
+                    Text("Important")
                 }
 
                 Section {
@@ -122,22 +135,50 @@ struct AboutView: View {
                     """)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .listRowBackground(Ink.card)
                 } header: {
                     Text("Known gaps")
                 }
             }
+            .listStyle(.insetGrouped)
+            .gazetteChrome()
             .navigationTitle("Settings")
             .task { notificationStatus = await AlertService.authorizationStatus() }
         }
     }
 
-    private func principle(_ icon: String, _ text: String) -> some View {
-        Label {
-            Text(text).font(.callout)
-        } icon: {
-            Image(systemName: icon).foregroundStyle(.tint)
+    private var brandHeader: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("CapitolSketch")
+                .font(.system(.title2, design: .serif).weight(.semibold))
+            Text("Congress trade disclosures")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text("House · public record")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
-        .labelStyle(.titleAndIcon)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func principle(_ item: Copy.Principle) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: item.symbol)
+                .font(.body)
+                .foregroundStyle(Ink.accent)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title)
+                    .font(.subheadline.weight(.semibold))
+                Text(item.body)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 
     private func labeled(_ label: String, _ value: String) -> some View {

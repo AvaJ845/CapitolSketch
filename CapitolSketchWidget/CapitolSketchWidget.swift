@@ -10,7 +10,7 @@ struct CapitolSketchWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "LatestDisclosures", provider: Provider()) { entry in
             DisclosureWidgetView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(Ink.canvas, for: .widget)
         }
         .configurationDisplayName("House disclosures")
         .description("Latest House stock-trade disclosures, or hits on tickers you watch.")
@@ -174,15 +174,16 @@ struct DisclosureWidgetView: View {
     private var smallHome: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.watchlistEmpty ? "Latest filing" : "Watchlist")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Ink.navy.opacity(0.7))
             if let trade = lead {
                 Text(trade.displaySymbol)
-                    .font(.title2.weight(.bold))
+                    .font(.title2.weight(.bold).monospaced())
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Text(trade.txType.directionLabel)
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(Ink.navy)
                 Text(trade.memberName)
                     .font(.caption)
                     .foregroundStyle(.secondary)

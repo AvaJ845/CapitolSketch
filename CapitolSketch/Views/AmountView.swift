@@ -72,10 +72,10 @@ struct AmountView: View {
     // MARK: - Range
 
     private var horizontalRange: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             endpoint(amount.lowLabel)
             RangeTrack(axis: .horizontal, openEnded: false)
-                .frame(width: 34, height: 12)
+                .frame(minWidth: 56, idealWidth: 88, maxWidth: 120, minHeight: 14)
             endpoint(amount.highLabel)
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -93,10 +93,10 @@ struct AmountView: View {
     }
 
     private var openEnded: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             endpoint(amount.headline)
             RangeTrack(axis: .horizontal, openEnded: true)
-                .frame(width: 26, height: 12)
+                .frame(minWidth: 40, idealWidth: 64, maxWidth: 88, minHeight: 14)
         }
         .fixedSize(horizontal: false, vertical: true)
     }

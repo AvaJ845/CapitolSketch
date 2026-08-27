@@ -20,7 +20,7 @@ struct DisclosureRow: View {
     private var isAX: Bool { typeSize.isAccessibilitySize }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isAX ? 10 : 6) {
+        VStack(alignment: .leading, spacing: isAX ? 10 : 8) {
             identity
             assetName
             attribution
@@ -28,17 +28,12 @@ struct DisclosureRow: View {
             timing
             flags
         }
-        .padding(.vertical, isAX ? 6 : 3)
+        .padding(.vertical, isAX ? 6 : 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Nine fields would otherwise be nine VoiceOver stops per row.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(trade.accessibleSummary)
     }
 
-    // MARK: - Direction, ticker, asset-type code
-
-    /// At AX5 these stack; below it they share a line only because the ticker and the
-    /// two-letter code are both short by construction.
     @ViewBuilder
     private var identity: some View {
         if isAX {
@@ -47,7 +42,7 @@ struct DisclosureRow: View {
                 symbolAndCode
             }
         } else {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 DirectionBadge(type: trade.txType)
                 symbolAndCode
                 Spacer(minLength: 0)
@@ -58,40 +53,31 @@ struct DisclosureRow: View {
     private var symbolAndCode: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(trade.displaySymbol)
-                .font(.headline.weight(.semibold))
+                .font(.body.weight(.semibold).monospaced())
                 .foregroundStyle(.primary)
                 .lineLimit(isAX ? nil : 1)
 
             if let code = trade.assetType {
-                // The bare code is what the filing prints, so it is shown as printed.
                 Text(code)
                     .font(.caption2.weight(.semibold).monospaced())
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .foregroundStyle(.secondary)
                     .accessibilityLabel(trade.assetTypeName ?? code)
             }
         }
     }
 
-    // MARK: - Asset
-
     private var assetName: some View {
         Text(trade.cleanAssetName)
             .font(.subheadline)
-            .foregroundStyle(.primary)
-            // Asset names on the form run long and carry the meaning. At accessibility
-            // sizes nothing is clipped; below it two lines are allowed before eliding.
+            .foregroundStyle(.secondary)
             .lineLimit(isAX ? nil : 2)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    // MARK: - Member and owner
-
-    /// Owner is body weight, not a muted chip. Whose account traded is part of the fact,
-    /// and greying it out would quietly editorialise: a large share of the best-known
-    /// trades in this data are spouse-owned.
+    /// Owner is body weight, not a muted chip. Whose account traded is part of the fact.
     @ViewBuilder
     private var attribution: some View {
         let owner = Text(trade.owner.label).font(.subheadline).foregroundStyle(.primary)
@@ -115,24 +101,17 @@ struct DisclosureRow: View {
         }
     }
 
-    // MARK: - Dates
-
-    /// Both dates and the gap between them, in words. Subtracting two dates is work the
-    /// reader should not have to do to notice that a trade is two months old.
     private var timing: some View {
         Text(trade.timingSentence)
             .font(.caption)
-            .foregroundStyle(trade.hasImpossibleDate ? .orange : .secondary)
+            .foregroundStyle(trade.hasImpossibleDate ? Ink.lag : .secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
-
-    // MARK: - Flags
 
     @ViewBuilder
     private var flags: some View {
         let items = flagItems
         if !items.isEmpty {
-            // At AX5 chips cannot sit side by side, so they wrap down the page.
             FlowRow(spacing: 6) {
                 ForEach(items, id: \.text) { flag in
                     TagChip(text: flag.text, systemImage: flag.symbol, tint: flag.tint)
@@ -147,12 +126,10 @@ struct DisclosureRow: View {
             out.append(("Option", "function", .secondary))
         }
         if trade.isLateFiling {
-            out.append(("Filed late", "clock.badge.exclamationmark", .orange))
+            out.append(("Filed late", "clock.badge.exclamationmark", Ink.lag))
         }
         if trade.hasImpossibleDate {
-            // A real filer typo. Being faithful to the form is the correct behaviour, so
-            // the value stands and the flag explains it.
-            out.append(("Date as filed", "exclamationmark.triangle", .orange))
+            out.append(("Date as filed", "exclamationmark.triangle", Ink.lag))
         }
         return out
     }
@@ -160,30 +137,32 @@ struct DisclosureRow: View {
 
 /// `↑ Bought` / `↓ Sold`.
 ///
-/// Deliberately monochrome. Green means gain and red means loss everywhere else on the
-/// reader's phone, and buying is not a gain — it is a direction. The arrow and the word
-/// each carry the whole meaning independently, so the badge still reads correctly under
-/// Increase Contrast, Smart Invert, Reduce Transparency and for a reader who cannot
-/// separate red from green at all. Colour is left to do nothing here rather than given a
-/// hue that would have to mean something.
+/// Deliberately not green/red. Bought is a filled navy capsule; Sold is an outline of
+/// the same ink. Colour still carries no P&L meaning — fill versus stroke is the
+/// distinction, and the word plus arrow each carry the whole meaning on their own.
 struct DirectionBadge: View {
     let type: TradeType
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var isFilled: Bool { type == .buy }
 
     var body: some View {
         Text(type.directionLabel)
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(.fill.tertiary, in: Capsule())
-            .foregroundStyle(.primary)
+            .font(typeSize.isAccessibilitySize ? .body.weight(.semibold) : .caption.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .foregroundStyle(isFilled ? Ink.badgeOnFill : Ink.badgeFill)
+            .background(isFilled ? Ink.badgeFill : Color.clear, in: Capsule())
+            .overlay {
+                if !isFilled {
+                    Capsule().strokeBorder(Ink.badgeFill, lineWidth: 1.2)
+                }
+            }
             .accessibilityLabel(type.directionPhrase)
     }
 }
 
 /// Chips that wrap onto as many lines as they need.
-///
-/// `HStack` would push them off the edge at accessibility sizes, and a `ScrollView` would
-/// hide them behind a gesture nobody knows to make.
 struct FlowRow: Layout {
     var spacing: CGFloat = 6
 
