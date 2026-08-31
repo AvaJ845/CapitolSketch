@@ -23,6 +23,8 @@ struct Options {
     var pretty = false
     /// Ignore every cache — index, crosswalk and PDFs — and refetch.
     var force = false
+    /// Also ingest Senate PTRs from efdsearch.senate.gov (build-time only; no cache).
+    var senate = false
 }
 
 func parseArgs() -> Options {
@@ -37,15 +39,17 @@ func parseArgs() -> Options {
         case "--concurrency": if let v = it.next(), let n = Int(v) { o.concurrency = max(1, n) }
         case "--pretty": o.pretty = true
         case "--force": o.force = true
+        case "--senate": o.senate = true
         case "--help", "-h":
             print("""
-            seedgen — parse US House Periodic Transaction Reports into a seed snapshot
+            seedgen — parse Congressional Periodic Transaction Reports into a seed snapshot
 
               --years 2025,2026   filing years (default: previous and current year)
               --out PATH          output JSON path
               --cache DIR         index, crosswalk and PDF cache directory
               --limit N           only the N most recent filings (for testing)
               --concurrency N     parallel PDF downloads (default 6)
+              --senate            also ingest Senate PTRs from efdsearch.senate.gov
               --force             ignore every cache and refetch
               --pretty            pretty-print the JSON
             """)
@@ -109,13 +113,40 @@ let output = await fetcher.run(filings: filings, directory: directory) { p in
     }
 }
 
-let deduped = deduplicate(output.trades).sorted {
+// 3b. Senate PTRs from efdsearch.senate.gov (build-time only). Same parser output
+//     shape, folded into the House rows before de-duplication.
+var senateOutput: PTRFetcher.Output?
+if opts.senate {
+    let since = CalendarDate(year: (opts.years.min() ?? CalendarDate.today().year), month: 1, day: 1)
+    log("Senate: querying efdsearch for PTRs filed since \(since.iso)…")
+    do {
+        senateOutput = try await SenateFetcher(directory: directory).run(since: since, limit: opts.limit) { done, total, rows in
+            if done % 25 == 0 || done == total { log("  Senate \(done)/\(total) filings — \(rows) rows") }
+        }
+        if let s = senateOutput {
+            log("Senate: \(s.trades.count) rows from \(s.members.count) senators "
+                + "(\(s.stats.filingsWithoutText.count) paper filings skipped, OCR pending)")
+        }
+    } catch {
+        log("Senate: FAILED — \(error.localizedDescription). Shipping House-only.")
+    }
+}
+
+let combinedTrades = output.trades + (senateOutput?.trades ?? [])
+let deduped = deduplicate(combinedTrades).sorted {
     $0.sortDate == $1.sortDate ? $0.id > $1.id : $0.sortDate > $1.sortDate
 }
-log("de-duplicated \(output.trades.count) → \(deduped.count) rows")
+log("de-duplicated \(combinedTrades.count) → \(deduped.count) rows")
 
 // 4. Report what did not work, loudly. These used to be counted as failures and dropped.
 var stats = output.stats
+if let s = senateOutput?.stats {
+    stats.filingsProcessed += s.filingsProcessed
+    stats.filingsWithoutText += s.filingsWithoutText
+    stats.filingsYieldingNoTrades += s.filingsYieldingNoTrades
+    stats.filingsFailedToFetch += s.filingsFailedToFetch
+}
+let allMembers = output.members + (senateOutput?.members ?? [])
 stats.tradesParsed = deduped.count
 log("")
 log("─── coverage ───")
@@ -149,9 +180,13 @@ let impossible = deduped.filter(\.hasImpossibleDate)
 if !impossible.isEmpty {
     log("MISTYPED DATES ON THE FORM (\(impossible.count)): shown as filed, flagged in the UI.")
 }
-let unresolved = output.members.filter { $0.bioguideID == nil }
+let unresolved = allMembers.filter { $0.bioguideID == nil }
 if !unresolved.isEmpty {
     log("NO BIOGUIDE ID (\(unresolved.count)): " + unresolved.map(\.name).joined(separator: ", "))
+}
+if senateOutput != nil {
+    let senators = deduped.filter { t in allMembers.contains { $0.id == t.memberID && $0.chamber == .senate } }
+    log("SENATE: \(senators.count) rows in the final feed after de-dup.")
 }
 log("────────────────")
 log("")
@@ -160,13 +195,15 @@ log("")
 //    on-device refresh merges through, so the two cannot order or de-duplicate
 //    the same filings differently.
 var nameToMemberID: [String: String] = [:]
-for m in output.members { nameToMemberID[m.name] = m.id }
+for m in allMembers { nameToMemberID[m.name] = m.id }
 
 let feed = FeedBuilder.make(
     trades: deduped,
-    members: output.members,
+    members: allMembers,
     stats: stats,
     indexYears: opts.years,
+    chambersCovered: senateOutput != nil ? [.house, .senate] : [.house],
+    source: senateOutput != nil ? TradeFeed.bothChambersSource : TradeFeed.houseClerkSource,
     nameToMemberID: nameToMemberID
 )
 
