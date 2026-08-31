@@ -38,6 +38,11 @@ struct MembersView: View {
                                     .font(.subheadline.weight(.medium).monospacedDigit())
                                     .foregroundStyle(.secondary)
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(
+                                "\(row.member.name), \(row.member.chamber.label) \(row.member.seat), "
+                                + "\(row.count) disclosed trade\(row.count == 1 ? "" : "s")"
+                            )
                         }
                         .disclosureRowChrome()
                     }

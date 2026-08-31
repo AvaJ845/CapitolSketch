@@ -156,7 +156,7 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
             Text("House · public record")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
