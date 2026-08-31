@@ -79,8 +79,8 @@ struct WatchlistView: View {
             .sheet(isPresented: $showingAdd) {
                 AddTickerView().presentationDetents([.large]).tint(Ink.accent)
             }
-            .task { refreshNewMatches() }
-            .onChange(of: watchlist.tickers) { refreshNewMatches() }
+            .task { gatherNewMatches(firstLoad: true) }
+            .onChange(of: watchlist.tickers) { gatherNewMatches(firstLoad: false) }
         }
     }
 
@@ -107,11 +107,17 @@ struct WatchlistView: View {
         }
     }
 
-    /// Surfaces unseen matches, then marks them seen so the section clears next visit.
-    private func refreshNewMatches() {
-        let unseen = watchlist.unseenMatches(in: store.trades)
-        newMatches = Array(unseen.prefix(50))
+    /// The "New since you last looked" section. Its rows are marked seen right away so a
+    /// backgrounding can't re-notify about them, but they stay in `newMatches` (local
+    /// state) for the rest of the visit — a re-render or a newly added ticker folds hits
+    /// in rather than wiping the section, which is what made it flicker away before.
+    private func gatherNewMatches(firstLoad: Bool) {
+        if firstLoad, !newMatches.isEmpty { return }
+        let unseen = Array(watchlist.unseenMatches(in: store.trades).prefix(50))
+        guard !unseen.isEmpty else { return }
         watchlist.markSeen(unseen)
+        let known = Set(newMatches.map(\.id))
+        newMatches += unseen.filter { !known.contains($0.id) }
     }
 }
 

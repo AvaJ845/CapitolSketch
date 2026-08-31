@@ -34,6 +34,27 @@ struct DisclosureDetailView: View {
                 Text(Copy.rangesOnly)
             }
 
+            Section {
+                if let url = trade.documentURL {
+                    Link(destination: url) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                            Text("View the source filing").fontWeight(.medium)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .foregroundStyle(Ink.accent)
+                    }
+                    .listRowBackground(Ink.card)
+                }
+            } footer: {
+                Text("Every field below is transcribed from the source PDF — US House Clerk, "
+                     + "filing \(trade.filingID), public domain. Check anything that matters "
+                     + "against it.")
+            }
+
             Section("The filing") {
                 row("Member", trade.memberName)
                 // Body weight, same as every other value. Whose account traded is a fact,
@@ -114,15 +135,6 @@ struct DisclosureDetailView: View {
                 }
             }
 
-            Section {
-                if let url = trade.documentURL {
-                    Link(destination: url) {
-                        Label("Open the original filing (PDF)", systemImage: "doc.text")
-                    }
-                }
-            } footer: {
-                Text("Filing ID \(trade.filingID) · US House Clerk, public domain.")
-            }
         }
         .listStyle(.insetGrouped)
         .gazetteChrome()
