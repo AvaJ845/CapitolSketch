@@ -53,33 +53,33 @@ less than the House's power-traders). Trivial.
 |---|---|---|
 | `SenatePTRParser.swift` | Electronic PTR HTML table → `[Trade]`. Dependency-free, scoped to the exact template. Reuses `PTRParser.parseAmount`, `CalendarDate`, `DisclosedAmount`. | 4 real report pages + the index JSON in `Tests/…/Fixtures/senate/` |
 | `SenateFilingIndex.swift` | CSRF handshake + paginated DataTables query → `[SenateFilingRow]`. **Build-time only.** | `report-index.json` fixture; `SenateLiveTests` (disabled, run by hand) |
-| `SenateFilingRef` | UUID + member + paper/electronic/amendment flags; `documentURL` → the eFD view page. | — |
+| `SenateFetcher.swift` | Orchestrator: one session, handshake once, list, then fetch + parse every electronic detail; resolves filers by name within the Senate chamber; collects `ParseStats` in the House `PTRFetcher.Output` shape. Paper filings recorded as missing (OCR pending). | live `seedgen --senate` run |
+| `MemberDirectory.resolve(last:first:chamber:)` | Name-only resolution for a source with no state (the eFD search). Answers only when the chamber narrows to one person. | proven live — Coons/McCormick/Boozman → real bioguide IDs |
 
-The **model already supports Senate**: `MemberDirectory.fromCongressLegislators` reads
-`type == "sen"` → `chamber: .senate`; `Member.chamber`, `Chamber.senate`,
-`TradeFeed.chambersCovered` all exist. Senator identity resolves through the same
-`congress-legislators` crosswalk the House uses.
+`seedgen` gained **`--senate`**: fetches Senate PTRs since Jan 1 of the earliest
+`--years` year, folds them into the House rows before de-dup, sets
+`chambersCovered = [.house, .senate]` and the combined source string. Verified end to
+end — a limited run produced a 104-row feed (82 Senate rows) with senators resolved and
+`documentURL`s pointing at eFD.
 
 ---
 
 ## What's left (in order)
 
-1. **`SenateFetcher`** — orchestrator: one session, handshake once, list, then
-   fetch+parse every electronic detail, reusing the session; resolve each filer against
-   `MemberDirectory` (senators are in the crosswalk); collect `ParseStats`.
-2. **Paper PTR OCR** — extract the `efd-media-public` GIF URLs from the paper page,
-   download, run through `PTROCR` / Vision, feed the text to a scan parser. Until then,
-   paper Senate filings are counted and shown as missing, exactly like unreadable House
-   scans.
-3. **`seedgen` wiring** — a `--senate` flag (default on once validated); merge House +
-   Senate through `FeedBuilder`; `chambersCovered = [.house, .senate]`; log Senate
-   coverage separately.
-4. **`Trade.chamber`** (or an app-side `store.member(id:)?.chamber` lookup) + schema bump
-   to 3.
-5. **App UI** — a `chamber` facet in `TradeFilter`, a "Senate" / "House" **text** tag in
+1. **Paper PTR OCR** — the paper page embeds `efd-media-public.senate.gov/…/NNN.gif`
+   scanned images. Extract those, download, run through `PTROCR` / Vision, feed the text
+   to a scan parser. Until then, paper Senate filings are counted and shown as missing,
+   exactly like unreadable House scans (~5–10% of Senate PTRs).
+2. **`Trade.chamber`** (or an app-side `store.member(id:)?.chamber` lookup) + schema
+   bump to 3, so the app can filter and tag by chamber. The feed already carries the
+   `Member.chamber` needed for the lookup path.
+3. **App UI** — a `chamber` facet in `TradeFilter`, a "Senate" / "House" **text** tag in
    `DisclosureRow` (never a colour — colour carries no meaning in this app), and
-   Senate-aware "View the source filing" (opens the eFD page, not a House Clerk PDF).
-6. **Ship it as one dated "now covers the full Congress" update** — only once electronic
+   Senate-aware "View the source filing" (opens the eFD page, not a House Clerk PDF —
+   `Trade.documentURL` already carries the right URL).
+4. **A full `seedgen --senate` run** into the real `seed-filings.json`, then regenerate
+   the App Store screenshots (the feed's "House · public record" framing changes).
+5. **Ship it as one dated "now covers the full Congress" update** — only once electronic
    *and* paper coverage is complete enough that a watchlist hit is as reliable for a
    senator as for a representative. A partial Senate tab is a North-Star violation.
 

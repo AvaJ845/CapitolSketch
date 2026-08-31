@@ -22,6 +22,8 @@ public enum FeedBuilder {
         members: [Member],
         stats: ParseStats,
         indexYears: [Int],
+        chambersCovered: [Chamber] = [.house],
+        source: String = TradeFeed.houseClerkSource,
         nameToMemberID: [String: String] = [:],
         generatedAt: Date = Date()
     ) -> TradeFeed {
@@ -31,8 +33,8 @@ public enum FeedBuilder {
         return TradeFeed(
             generatedAt: generatedAt,
             indexYears: indexYears.sorted(),
-            source: TradeFeed.houseClerkSource,
-            chambersCovered: [.house],
+            source: source,
+            chambersCovered: chambersCovered,
             members: members.sorted { $0.name < $1.name },
             trades: rows,
             stats: stats,
@@ -83,4 +85,6 @@ public enum FeedBuilder {
 extension TradeFeed {
     public static let houseClerkSource =
         "US House Clerk — Periodic Transaction Reports (disclosures-clerk.house.gov)"
+    public static let bothChambersSource =
+        "US House Clerk (disclosures-clerk.house.gov) and US Senate eFD (efdsearch.senate.gov) — Periodic Transaction Reports"
 }

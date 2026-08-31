@@ -126,6 +126,33 @@ public struct MemberDirectory: Sendable {
         return .notFound
     }
 
+    /// Resolves a filer by name within one chamber, for sources that give a name but no
+    /// state — the Senate eFD search being the case this exists for. With 100 senators
+    /// national surname+forename collisions are rare (the Scotts differ by forename), so
+    /// this answers whenever the chamber narrows to exactly one person and reports
+    /// ambiguity otherwise rather than guessing.
+    public func resolve(last: String, first: String, chamber: Chamber) -> Resolution {
+        let nLast = Self.normalize(last)
+        let nFirst = Self.normalize(first).components(separatedBy: " ").first ?? ""
+
+        let bySurname = entries.filter {
+            $0.chamber == chamber && Self.normalize($0.last) == nLast
+        }
+        if let only = Self.sameHuman(bySurname) { return .resolved(only.bioguideID) }
+
+        guard !nFirst.isEmpty else {
+            return bySurname.isEmpty ? .notFound : .ambiguous(Self.ids(bySurname))
+        }
+        let byForename = bySurname.filter {
+            let f = Self.normalize($0.first)
+            let nick = Self.normalize($0.nickname ?? "")
+            return f.hasPrefix(nFirst) || nFirst.hasPrefix(f) || nick == nFirst
+        }
+        if let only = Self.sameHuman(byForename) { return .resolved(only.bioguideID) }
+        if byForename.count > 1 { return .ambiguous(Self.ids(byForename)) }
+        return bySurname.isEmpty ? .notFound : .ambiguous(Self.ids(bySurname))
+    }
+
     /// The single person these candidates describe, if there is one. A group that is all
     /// the same human — the same member indexed under several terms — counts as one.
     /// When several people remain, the seat number is the only honest tiebreak.
