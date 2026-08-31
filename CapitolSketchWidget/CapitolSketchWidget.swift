@@ -193,7 +193,7 @@ struct DisclosureWidgetView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.watchlistEmpty ? "Latest filing" : "Watchlist")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Ink.navy.opacity(0.7))
+                .foregroundStyle(.secondary)
             if let trade = lead {
                 Text(trade.displaySymbol)
                     .font(.title2.weight(.bold).monospaced())
@@ -201,7 +201,7 @@ struct DisclosureWidgetView: View {
                     .minimumScaleFactor(0.6)
                 Text(trade.txType.directionLabel)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Ink.navy)
+                    .foregroundStyle(Ink.accent)
                 Text(trade.memberName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
