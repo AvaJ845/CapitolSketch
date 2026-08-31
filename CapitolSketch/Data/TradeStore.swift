@@ -21,9 +21,18 @@ final class TradeStore {
     private(set) var trades: [Trade] = []
 
     private(set) var isRefreshing = false
+    /// True until the bundled snapshot has been read off disk. The 4.6 MB feed is decoded
+    /// on a background task, so the first frame renders a loading state rather than
+    /// blocking the main actor at launch.
+    private(set) var isLoading = true
     private(set) var lastError: String?
     /// What the last refresh actually did, in words, for display.
     private(set) var lastRefreshSummary: String?
+
+    /// When the feed was last brought up to date this session. A foreground is not an
+    /// instruction to re-hit the Clerk; an explicit pull-to-refresh or Settings tap is.
+    private var lastRefreshAt: Date?
+    private static let minimumRefreshInterval: TimeInterval = 30 * 60
 
     var members: [Member] { feed.members }
     var stats: ParseStats { feed.stats }
@@ -33,31 +42,47 @@ final class TradeStore {
         feed.generatedAt == .distantPast ? nil : feed.generatedAt
     }
 
-    init() {
-        load()
-    }
+    init() {}
 
     // MARK: - Loading
+
+    /// Reads the feed off disk, then makes the shipped snapshot visible to the widget.
+    /// Called once from the app's root `.task`.
+    func start() async {
+        await load()
+        seedSharedContainerIfNeeded()
+    }
 
     /// Prefers whichever copy was generated most recently: a refresh the app has already
     /// merged, or the snapshot it shipped with. A build newer than the cache wins, which
     /// is what makes shipping an updated seed work.
-    private func load() {
-        let candidates = [
+    ///
+    /// The file read and JSON decode run off the main actor so launch is not blocked by
+    /// the size of the snapshot.
+    private func load() async {
+        let loaded = await Task.detached(priority: .userInitiated) {
+            Self.newestFeedOnDisk()
+        }.value
+
+        isLoading = false
+        guard let loaded else {
+            feed = .empty
+            lastError = "The bundled filings could not be read."
+            return
+        }
+        feed = loaded
+    }
+
+    nonisolated private static func newestFeedOnDisk() -> TradeFeed? {
+        [
             SharedContainer.feedFile,
             SharedContainer.localFeedFile,
             Bundle.main.url(forResource: "seed-filings", withExtension: "json"),
         ]
         .compactMap { $0 }
-        .compactMap { Self.decode(contentsOf: $0) }
+        .compactMap { decode(contentsOf: $0) }
         .filter { $0.schemaVersion == TradeFeed.currentSchemaVersion }
-
-        guard let newest = candidates.max(by: { $0.generatedAt < $1.generatedAt }) else {
-            feed = .empty
-            lastError = "The bundled filings could not be read."
-            return
-        }
-        feed = newest
+        .max(by: { $0.generatedAt < $1.generatedAt })
     }
 
     // MARK: - Refreshing
@@ -67,11 +92,22 @@ final class TradeStore {
     /// The watchlist takes no part in this. Which index is read, which PDFs are fetched
     /// and the order they are fetched in depend only on what the snapshot already holds
     /// and on today's date, so every device issues the same requests.
-    func refresh() async {
+    /// - Parameter force: `true` for an explicit user action (pull-to-refresh, the
+    ///   Settings button). `false` — the default, used by the scene-activation hook —
+    ///   is a no-op if the feed was refreshed within the last half hour, so flipping
+    ///   between apps does not turn into a burst of requests to a government file server.
+    func refresh(force: Bool = false) async {
         guard !isRefreshing else { return }
+        if !force, let last = lastRefreshAt,
+           Date().timeIntervalSince(last) < Self.minimumRefreshInterval {
+            return
+        }
         isRefreshing = true
         lastError = nil
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            lastRefreshAt = Date()
+        }
 
         let current = feed
         let outcome = await IncrementalRefresher.refresh(
@@ -155,7 +191,7 @@ final class TradeStore {
 
     // MARK: - Decoding
 
-    static func decode(contentsOf url: URL) -> TradeFeed? {
+    nonisolated static func decode(contentsOf url: URL) -> TradeFeed? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         let (_, decoder) = TradeFeed.makeCoder()
         return try? decoder.decode(TradeFeed.self, from: data)

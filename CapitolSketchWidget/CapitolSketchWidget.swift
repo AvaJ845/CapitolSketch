@@ -42,6 +42,10 @@ struct Provider: TimelineProvider {
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DisclosureEntry>) -> Void) {
+        // WidgetKit's completion handler predates strict concurrency and is not Sendable.
+        // It is invoked exactly once, from inside this Task; hand it across the boundary
+        // explicitly rather than letting the closure capture rule flag it.
+        nonisolated(unsafe) let completion = completion
         Task {
             await refreshFromClerk()
             let entry = currentEntry()
@@ -115,6 +119,11 @@ struct DisclosureWidgetView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
+        content.widgetURL(Self.link(for: lead, watchlistEmpty: entry.watchlistEmpty))
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch family {
         case .accessoryInline:
             Text(inlineText)
@@ -130,6 +139,15 @@ struct DisclosureWidgetView: View {
     }
 
     private var lead: Trade? { entry.trades.first }
+
+    /// Where a tap on the widget lands. A specific filing when there is one, otherwise
+    /// the tab that matches what the widget is showing.
+    static func link(for trade: Trade?, watchlistEmpty: Bool) -> URL {
+        if let trade {
+            return URL(string: "capitolsketch://filing/\(trade.id)")!
+        }
+        return URL(string: watchlistEmpty ? "capitolsketch://feed" : "capitolsketch://watchlist")!
+    }
 
     private var inlineText: String {
         guard let trade = lead else { return "No House filings yet" }
@@ -213,23 +231,25 @@ struct DisclosureWidgetView: View {
                 Spacer()
             } else {
                 ForEach(entry.trades.prefix(3)) { trade in
-                    HStack(spacing: 6) {
-                        Text(trade.txType.arrowGlyph)
-                            .font(.caption.weight(.bold))
-                            .frame(width: 12)
-                        Text(trade.displaySymbol)
-                            .font(.subheadline.weight(.semibold))
-                            .frame(width: 52, alignment: .leading)
-                            .lineLimit(1)
-                        Text(trade.memberName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        Text(trade.amount.label)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    Link(destination: URL(string: "capitolsketch://filing/\(trade.id)")!) {
+                        HStack(spacing: 6) {
+                            Text(trade.txType.arrowGlyph)
+                                .font(.caption.weight(.bold))
+                                .frame(width: 12)
+                            Text(trade.displaySymbol)
+                                .font(.subheadline.weight(.semibold))
+                                .frame(width: 52, alignment: .leading)
+                                .lineLimit(1)
+                            Text(trade.memberName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                            Text(trade.amount.label)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 Spacer(minLength: 0)
