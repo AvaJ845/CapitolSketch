@@ -31,77 +31,140 @@ struct RootView: View {
     @Environment(WatchlistStore.self) private var watchlist
     @Environment(NotificationCoordinator.self) private var notifications
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
-    @State private var selection: TabID = .feed
+    @State private var selection: Section = .feed
     @State private var routedTrade: Trade?
+    @State private var splitVisibility: NavigationSplitViewVisibility = .automatic
 
-    /// Not named `Tab` so it doesn't shadow SwiftUI's `Tab` view.
-    enum TabID: Hashable { case feed, watchlist, members, about }
+    /// The four top-level areas. On iPhone these are tabs; on iPad they are the sidebar.
+    enum Section: Hashable, CaseIterable {
+        case feed, watchlist, members, about
+
+        var title: String {
+            switch self {
+            case .feed: return "Trades"
+            case .watchlist: return "Watchlist"
+            case .members: return "Members"
+            case .about: return "Settings"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .feed: return "list.bullet.rectangle"
+            case .watchlist: return "star"
+            case .members: return "person.3"
+            case .about: return "gearshape"
+            }
+        }
+    }
 
     private var watchlistBadge: Int {
         watchlist.unseenMatches(in: store.trades).count
     }
 
     var body: some View {
-        TabView(selection: $selection) {
-            Tab("Trades", systemImage: "list.bullet.rectangle", value: TabID.feed) {
-                FeedView()
-            }
-
-            Tab("Watchlist", systemImage: "star", value: TabID.watchlist) {
-                WatchlistView()
-            }
-            .badge(watchlistBadge)
-
-            Tab("Members", systemImage: "person.3", value: TabID.members) {
-                MembersView()
-            }
-
-            Tab("Settings", systemImage: "gearshape", value: TabID.about) {
-                AboutView()
-            }
-        }
-        .tint(Ink.accent)
-        .sheet(item: $routedTrade) { trade in
-            NavigationStack {
-                DisclosureDetailView(trade: trade)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") { routedTrade = nil }
-                        }
-                    }
-            }
-            .environment(watchlist)
+        layout
             .tint(Ink.accent)
-        }
-        .task { applyLaunchArguments() }
-        .onOpenURL { handle(url: $0) }
-        .onChange(of: notifications.pendingRowID) { _, id in routeToFiling(id) }
-        .onChange(of: notifications.pendingDigest) { _, digest in
-            if digest {
-                selection = .watchlist
-                notifications.clear()
-            }
-        }
-        .onChange(of: store.isLoading) { _, loading in
-            guard !loading else { return }
-            // The feed loads off the main actor, so anything that needs trades — a
-            // pending notification/widget tap, the first watchlist alert check, the
-            // simulator seed — waits until it is in hand.
-            seedWatchlistIfRequested()
-            routeToFiling(notifications.pendingRowID)
-            Task { await checkForWatchlistAlerts() }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task {
-                    await AlertService.clearBadge()
-                    await store.refresh()
-                    await checkForWatchlistAlerts()
+            .sheet(item: $routedTrade) { trade in
+                NavigationStack {
+                    DisclosureDetailView(trade: trade)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { routedTrade = nil }
+                            }
+                        }
                 }
+                .environment(watchlist)
+                .tint(Ink.accent)
+            }
+            .task { applyLaunchArguments() }
+            .onOpenURL { handle(url: $0) }
+            .onChange(of: notifications.pendingRowID) { _, id in routeToFiling(id) }
+            .onChange(of: notifications.pendingDigest) { _, digest in
+                if digest {
+                    selection = .watchlist
+                    notifications.clear()
+                }
+            }
+            .onChange(of: store.isLoading) { _, loading in
+                guard !loading else { return }
+                // The feed loads off the main actor, so anything that needs trades — a
+                // pending notification/widget tap, the first watchlist alert check, the
+                // simulator seed — waits until it is in hand.
+                seedWatchlistIfRequested()
+                routeToFiling(notifications.pendingRowID)
+                Task { await checkForWatchlistAlerts() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task {
+                        await AlertService.clearBadge()
+                        await store.refresh()
+                        await checkForWatchlistAlerts()
+                    }
+                }
+            }
+    }
+
+    // MARK: - Layout
+
+    /// iPhone (and narrow iPad multitasking) get the tab bar; a regular-width iPad gets
+    /// a sidebar so the four areas stay visible and the window's width is actually used.
+    @ViewBuilder
+    private var layout: some View {
+        if horizontalSizeClass == .compact {
+            tabLayout
+        } else {
+            sidebarLayout
+        }
+    }
+
+    private var tabLayout: some View {
+        TabView(selection: $selection) {
+            ForEach(Section.allCases, id: \.self) { section in
+                Tab(section.title, systemImage: section.symbol, value: section) {
+                    view(for: section)
+                }
+                .badge(section == .watchlist ? watchlistBadge : 0)
             }
         }
     }
+
+    private var sidebarLayout: some View {
+        NavigationSplitView(columnVisibility: $splitVisibility) {
+            List(selection: sidebarSelection) {
+                ForEach(Section.allCases, id: \.self) { section in
+                    Label(section.title, systemImage: section.symbol)
+                        .badge(section == .watchlist ? watchlistBadge : 0)
+                        .tag(Optional(section))
+                }
+            }
+            .navigationTitle("CapitolSketch")
+            .navigationBarTitleDisplayMode(.inline)
+        } detail: {
+            view(for: selection)
+        }
+    }
+
+    /// `List` single-selection on iOS wants an optional binding; the app always has a
+    /// section selected, so a nil selection is treated as "no change".
+    private var sidebarSelection: Binding<Section?> {
+        Binding(get: { selection }, set: { if let new = $0 { selection = new } })
+    }
+
+    @ViewBuilder
+    private func view(for section: Section) -> some View {
+        switch section {
+        case .feed: FeedView()
+        case .watchlist: WatchlistView()
+        case .members: MembersView()
+        case .about: AboutView()
+        }
+    }
+
+    // MARK: - Routing
 
     private func handle(url: URL) {
         switch url.host {

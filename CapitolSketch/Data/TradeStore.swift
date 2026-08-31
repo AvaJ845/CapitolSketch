@@ -53,15 +53,15 @@ final class TradeStore {
         seedSharedContainerIfNeeded()
     }
 
-    /// Prefers whichever copy was generated most recently: a refresh the app has already
-    /// merged, or the snapshot it shipped with. A build newer than the cache wins, which
-    /// is what makes shipping an updated seed work.
+    /// Loads the feed, preferring whichever copy was generated most recently — a refresh
+    /// the app already merged, or the snapshot it shipped with.
     ///
     /// The file read and JSON decode run off the main actor so launch is not blocked by
     /// the size of the snapshot.
     private func load() async {
         let loaded = await Task.detached(priority: .userInitiated) {
-            Self.newestFeedOnDisk()
+            Self.discardCacheIfBuildChanged()
+            return Self.newestFeedOnDisk()
         }.value
 
         isLoading = false
@@ -71,6 +71,20 @@ final class TradeStore {
             return
         }
         feed = loaded
+    }
+
+    /// A new app build ships a new bundled snapshot that may carry parser or data fixes.
+    /// Its `generatedAt` predates any on-device refresh, so newest-wins would keep serving
+    /// the stale cache. On a build change, drop the cache: the next refresh rebuilds it
+    /// from the fresh snapshot.
+    nonisolated private static func discardCacheIfBuildChanged() {
+        let defaults = SharedContainer.defaults
+        let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
+        guard defaults.string(forKey: SharedContainer.Key.seedBuild) != build else { return }
+        defaults.set(build, forKey: SharedContainer.Key.seedBuild)
+        for url in [SharedContainer.feedFile, SharedContainer.localFeedFile].compactMap({ $0 }) {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     nonisolated private static func newestFeedOnDisk() -> TradeFeed? {
