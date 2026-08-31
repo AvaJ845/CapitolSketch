@@ -196,9 +196,15 @@ private struct FilterSheet: View {
             HStack {
                 Text(title).foregroundStyle(.primary)
                 Spacer()
-                if isOn { Image(systemName: "checkmark").foregroundStyle(Ink.accent) }
+                if isOn {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Ink.accent)
+                        .accessibilityHidden(true)
+                }
             }
         }
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
     }
 
     private func toggle<T: Hashable>(_ value: T, in set: inout Set<T>) {

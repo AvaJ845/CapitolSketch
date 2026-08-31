@@ -100,6 +100,8 @@ struct DataAgeLine: View {
 struct MonogramView: View {
     let name: String
 
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 36
+
     private var initials: String {
         let parts = name.split(separator: " ").filter { !$0.hasSuffix(".") }
         let letters = parts.suffix(2).compactMap { $0.first }
@@ -110,35 +112,56 @@ struct MonogramView: View {
     var body: some View {
         Text(initials)
             .font(.caption.weight(.semibold))
+            .minimumScaleFactor(0.7)
+            .lineLimit(1)
             .foregroundStyle(Ink.badgeOnFill)
-            .frame(width: 36, height: 36)
+            .frame(width: size, height: size)
             .background(Ink.badgeFill, in: Circle())
             .accessibilityHidden(true)
     }
 }
 
-/// Three or four headline numbers in a single row.
+/// Three or four headline numbers. A single row normally; a wrapping grid once Dynamic
+/// Type reaches the accessibility sizes, where four cells across would clip.
 struct StatStrip: View {
     let items: [(label: String, value: String)]
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                VStack(spacing: 4) {
-                    Text(item.value)
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                    Text(item.label)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+        Group {
+            if typeSize.isAccessibilitySize {
+                let columns = [GridItem(.flexible()), GridItem(.flexible())]
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        cell(item)
+                    }
                 }
-                .frame(maxWidth: .infinity)
-                if index < items.count - 1 {
-                    Divider().frame(height: 28)
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        cell(item).frame(maxWidth: .infinity)
+                        if index < items.count - 1 {
+                            Divider().frame(height: 28)
+                        }
+                    }
                 }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private func cell(_ item: (label: String, value: String)) -> some View {
+        VStack(spacing: 4) {
+            Text(item.value)
+                .font(.title3.weight(.semibold).monospacedDigit())
+            Text(item.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.label): \(item.value)")
     }
 }
 
@@ -159,7 +182,9 @@ struct TickerChip: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Ink.navy.opacity(0.08), in: Capsule())
-        .overlay(Capsule().strokeBorder(Ink.navy.opacity(0.18), lineWidth: 0.5))
+        .background(Ink.chipFill, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.chipStroke, lineWidth: 0.75))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(count.map { "\(ticker), \($0) disclosed trade\($0 == 1 ? "" : "s")" } ?? ticker)
     }
 }
