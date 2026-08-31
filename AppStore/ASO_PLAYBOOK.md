@@ -162,6 +162,14 @@ above is kept so a later rename has the record of what was checked. See section 
 
 ## 4. Screenshot plan
 
+> **2026-08-31 update.** The four-frame plan below is superseded by the shipped
+> six-frame iPhone / four-frame iPad set recorded in `METADATA.md` §6, captured from the
+> current build. Frame 3's "trust panel with three badges" was never built — the real
+> `Settings → What this app is` screen carries the same literal claims and is what ships.
+> The **accuracy constraints in this section still bind every frame**: real parsed House
+> filings only, amounts shown only as brackets, the disclosure lag always visible, and
+> neither cut feature (practice portfolio, prediction scoreboard) anywhere in frame.
+
 ### Cut features — must not appear anywhere
 
 Two features were **cut** from this product and must not appear in any screenshot, any
