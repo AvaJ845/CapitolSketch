@@ -17,7 +17,14 @@ enum Ink {
             : UIColor(red: 173 / 255, green: 74 / 255, blue: 30 / 255, alpha: 1)
     })
 
-    static let accent = navy
+    /// Interactive tint — links, buttons, selection. Navy reads well on paper but is
+    /// almost invisible on the dark canvas, so dark mode gets a legible civic blue that
+    /// still clears WCAG AA as link text on the card.
+    static let accent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.46, green: 0.66, blue: 0.92, alpha: 1)
+            : UIColor(red: 11 / 255, green: 31 / 255, blue: 58 / 255, alpha: 1)
+    })
 
     /// Faint tint behind chips and pull-quotes. Defined per appearance because a flat
     /// low-opacity navy vanishes on the dark canvas.
@@ -35,13 +42,15 @@ enum Ink {
 
     static let canvas = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.07, green: 0.08, blue: 0.10, alpha: 1)
+            ? UIColor(red: 0.055, green: 0.065, blue: 0.085, alpha: 1)
             : UIColor(red: 244 / 255, green: 239 / 255, blue: 230 / 255, alpha: 1)
     })
 
+    /// Card surface. On dark it is lifted well clear of the canvas so grouped sections
+    /// read as distinct cards rather than a single flat field.
     static let card = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.13, green: 0.15, blue: 0.18, alpha: 1)
+            ? UIColor(red: 0.16, green: 0.18, blue: 0.22, alpha: 1)
             : UIColor.white
     })
 
