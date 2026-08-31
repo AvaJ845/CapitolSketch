@@ -120,6 +120,12 @@ stats.tradesParsed = deduped.count
 log("")
 log("─── coverage ───")
 log(stats.coverageNote)
+let ocrRecovered = output.warningsByFiling.filter { $0.value.contains { $0.contains("recovered by OCR") } }
+if !ocrRecovered.isEmpty {
+    let rows = deduped.filter { $0.warnings.contains("recovered by OCR") }.count
+    log("OCR RECOVERY: \(ocrRecovered.count) scanned filings yielded \(rows) rows via OCR "
+        + "(flagged lower-confidence in the UI).")
+}
 if !stats.filingsFailedToFetch.isEmpty {
     log("DOWNLOAD FAILURES (\(stats.filingsFailedToFetch.count)): "
         + stats.filingsFailedToFetch.prefix(20).joined(separator: ", "))

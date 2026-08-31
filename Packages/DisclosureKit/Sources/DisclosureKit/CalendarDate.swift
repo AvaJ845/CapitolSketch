@@ -27,13 +27,16 @@ public struct CalendarDate: Codable, Hashable, Comparable, Sendable, CustomStrin
         self.init(year: y, month: m, day: d)
     }
 
-    /// Parses `MM/DD/YYYY` as printed on the House form.
+    /// Parses `MM/DD/YYYY` as printed on the House form. Scanned filings sometimes carry
+    /// a two-digit year (`01/10/25`), which is read as 20xx.
     public init?(formStyle: String) {
         let p = formStyle.trimmingCharacters(in: .whitespaces).split(separator: "/")
         guard p.count == 3,
-              let m = Int(p[0]), let d = Int(p[1]), let y = Int(p[2]),
-              (1...12).contains(m), (1...31).contains(d), y > 1900, y < 2200
+              let m = Int(p[0]), let d = Int(p[1]), var y = Int(p[2]),
+              (1...12).contains(m), (1...31).contains(d)
         else { return nil }
+        if y < 100 { y += 2000 }
+        guard y > 1900, y < 2200 else { return nil }
         self.init(year: y, month: m, day: d)
     }
 

@@ -145,8 +145,9 @@ struct AboutView: View {
                     **House only in v1.** Senate disclosures live on a separate portal that \
                     requires a session cookie, so they are not covered yet.
 
-                    **Some filings are scanned paper and yield nothing.** \(store.stats.coverageNote) \
-                    Those transactions are missing here entirely.
+                    **Some filings are scanned paper.** \(store.stats.coverageNote) Scans are \
+                    run through OCR; whatever it recovers is shown but flagged lower-confidence, \
+                    and the rest are still missing here — open the source PDF.
 
                     **Amounts are ranges.** The form asks for a bracket, so a bracket is all \
                     anyone has. Check any figure against the original PDF before you rely on it.

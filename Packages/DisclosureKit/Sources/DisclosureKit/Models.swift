@@ -176,7 +176,8 @@ public struct ParseStats: Codable, Sendable, Hashable {
         let unreadable = filingsWithoutText.count
         guard filingsProcessed > 0 else { return "No filings processed." }
         let pct = Int((Double(unreadable) / Double(filingsProcessed) * 100).rounded())
-        return "\(filingsProcessed) filings read, \(unreadable) were scanned paper with no readable text (\(pct)%)."
+        return "\(filingsProcessed) filings read. \(unreadable) are scanned paper that OCR "
+            + "still could not turn into transactions (\(pct)%)."
     }
 }
 

@@ -45,6 +45,12 @@ struct CalendarDateTests {
         #expect(CalendarDate(iso: "not-a-date") == nil)
         #expect(CalendarDate(formStyle: "") == nil)
     }
+
+    @Test("A two-digit year on a scanned form is read as 20xx")
+    func twoDigitYear() {
+        #expect(CalendarDate(formStyle: "01/10/25") == CalendarDate(iso: "2025-01-10"))
+        #expect(CalendarDate(formStyle: "3/7/24") == CalendarDate(iso: "2024-03-07"))
+    }
 }
 
 @Suite("Filing index")
@@ -260,7 +266,7 @@ struct FeedTests {
         )
         #expect(stats.filingsYieldingNoTrades.count == 1)
         #expect(stats.filingsWithoutText.count == 2)
-        #expect(stats.coverageNote.contains("2 were scanned paper"))
+        #expect(stats.coverageNote.contains("2 are scanned paper"))
     }
 
     @Test("A feed round-trips through its coder")

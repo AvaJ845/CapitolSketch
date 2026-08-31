@@ -93,12 +93,15 @@ public struct PTRFetcher: Sendable {
 
                 if result.warnings.contains("download failed") {
                     stats.filingsFailedToFetch.append(filing.docID)
-                } else if !result.hadReadableText {
-                    // A scanned paper filing. Not a parser bug, but still missing data.
-                    stats.filingsWithoutText.append(filing.docID)
                 } else if result.trades.isEmpty {
-                    // Readable text but no rows recognised: this IS a parser failure.
-                    stats.filingsYieldingNoTrades.append(filing.docID)
+                    if result.hadReadableText && !result.recoveredByOCR {
+                        // An embedded text layer, but no rows recognised — a parser failure.
+                        stats.filingsYieldingNoTrades.append(filing.docID)
+                    } else {
+                        // A scan: no text layer, and OCR either failed or could not be
+                        // structured into rows. Still missing, not a parser bug.
+                        stats.filingsWithoutText.append(filing.docID)
+                    }
                 } else {
                     trades.append(contentsOf: result.trades)
                     stats.tradesParsed += result.trades.count

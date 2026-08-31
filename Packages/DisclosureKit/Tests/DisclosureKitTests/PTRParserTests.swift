@@ -204,13 +204,15 @@ struct PTRParserTests {
 
     // MARK: - Failure modes, surfaced rather than hidden
 
-    @Test("A scanned filing reports no readable text, distinct from a parse failure")
-    func scannedFilingIsDistinguishable() {
+    @Test("A scanned filing is run through OCR and flagged as recovered, not silently dropped")
+    func scannedFilingGoesThroughOCR() {
         let r = Fixture.scannedNoText.parse()
-        #expect(r.hadReadableText == false)
-        #expect(r.trades.isEmpty)
-        // The caller must be able to tell "nothing to read" from "failed to read".
-        #expect(r.warnings.contains { $0.contains("scanned") })
+        // Vision recovers the page text even though there is no embedded text layer.
+        #expect(r.hadReadableText)
+        #expect(r.recoveredByOCR)
+        #expect(r.warnings.contains { $0.lowercased().contains("ocr") })
+        // Any rows it does manage to structure are marked lower-confidence.
+        #expect(r.trades.allSatisfy { $0.warnings.contains("recovered by OCR") })
     }
 
     @Test("Amended filings parse", arguments: [Fixture.rouzerAmended, .cisnerosAmended])
