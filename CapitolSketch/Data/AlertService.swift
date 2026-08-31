@@ -40,20 +40,27 @@ enum AlertService {
         content.sound = .default
         content.badge = NSNumber(value: trades.count)
 
+        // A stable identifier per filing (and one shared id for the digest) so that a
+        // re-check before the reader opens the Watchlist tab replaces the pending
+        // notification instead of stacking a fresh copy in Notification Center.
+        let identifier: String
+
         if trades.count == 1, let only = trades.first {
             content.title = "\(only.memberName) \(only.txType.verb.lowercased()) \(only.displaySymbol)"
             // The bracket and the gap, both stated as the form states them.
             content.body = "\(only.amount.label) · \(only.disclosureGapPhrase)"
             content.userInfo = ["rowID": only.id]
+            identifier = "watchlist-\(only.id)"
         } else {
             let symbols = Set(trades.compactMap(\.ticker)).sorted()
             content.title = "\(trades.count) new disclosures on your watchlist"
             content.body = symbols.prefix(4).joined(separator: ", ")
                 + (symbols.count > 4 ? " and \(symbols.count - 4) more" : "")
+            identifier = "watchlist-digest"
         }
 
         let request = UNNotificationRequest(
-            identifier: "watchlist-\(UUID().uuidString)",
+            identifier: identifier,
             content: content,
             trigger: nil // deliver immediately
         )

@@ -97,7 +97,7 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
     /// of every list, so those fall back to the date the filing was made.
     public var sortDate: CalendarDate { hasImpossibleDate ? disclosedDate : txDate }
 
-    public var displaySymbol: String { ticker ?? String(asset.prefix(18)) }
+    public var displaySymbol: String { ticker ?? String(cleanAssetName.prefix(18)) }
 
     /// The asset name with the trailing "(TICK) [ST]" bookkeeping removed.
     public var cleanAssetName: String {

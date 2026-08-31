@@ -41,6 +41,10 @@ public enum IncrementalRefresher {
             }
             if newFilings == 0 { return "No new filings since the last check." }
             if addedTrades == 0 {
+                if downloaded > 0, scannedPaper < downloaded {
+                    // Filings were read fine; they just restated trades already on file.
+                    return "Checked \(downloaded) new filing\(downloaded == 1 ? "" : "s"); nothing to add."
+                }
                 return "\(newFilings) new filing\(newFilings == 1 ? "" : "s"), none readable."
             }
             var s = "Added \(addedTrades) transaction\(addedTrades == 1 ? "" : "s")"
