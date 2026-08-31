@@ -365,7 +365,11 @@ public enum PTRParser {
             state.awaiting = nil
         }
 
-        let head = String(line.prefix(m.range.location)).trimmingCharacters(in: .whitespaces)
+        // `m.range.location` is a UTF-16 offset, so slice with NSString rather than
+        // `String.prefix`, which counts Characters and would misalign on any accented
+        // name or en-dash that precedes the anchor.
+        let head = (line as NSString).substring(to: m.range.location)
+            .trimmingCharacters(in: .whitespaces)
         let assetText = trimToLastAsset(
             (state.assetLines + [head])
                 .map { $0.trimmingCharacters(in: .whitespaces) }
