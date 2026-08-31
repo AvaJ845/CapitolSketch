@@ -45,6 +45,15 @@ final class AppIconStore {
         var mark: Color {
             self == .paper ? Ink.navy : .white
         }
+
+        /// The rendered icon art, bundled as a small PNG under Resources/IconPreviews.
+        var preview: Image? {
+            let file = alternateName ?? "CapitolSketch"
+            guard let url = Bundle.main.url(forResource: file, withExtension: "png"),
+                  let image = UIImage(contentsOfFile: url.path)
+            else { return nil }
+            return Image(uiImage: image)
+        }
     }
 
     private(set) var current: Option

@@ -212,18 +212,7 @@ struct AboutView: View {
     private func iconRow(_ option: AppIconStore.Option) -> some View {
         let selected = appIcon.current == option
         return HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(option.background)
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Image(systemName: "building.columns.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(option.mark)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .strokeBorder(Ink.hairline, lineWidth: 0.5)
-                }
+            iconSwatch(option)
             Text(option.label).foregroundStyle(.primary)
             Spacer()
             if selected {
@@ -235,5 +224,24 @@ struct AboutView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(option.label)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder
+    private func iconSwatch(_ option: AppIconStore.Option) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+        Group {
+            if let preview = option.preview {
+                preview.resizable()
+            } else {
+                option.background.overlay {
+                    Image(systemName: "building.columns.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(option.mark)
+                }
+            }
+        }
+        .frame(width: 40, height: 40)
+        .clipShape(shape)
+        .overlay { shape.strokeBorder(Ink.hairline, lineWidth: 0.5) }
     }
 }
