@@ -14,6 +14,10 @@ enum SharedContainer {
         static let seenRowIDs = "seenRowIDs"
         static let notifyEnabled = "notificationsEnabled"
         static let appearance = "appearance"
+        /// The app build the on-device feed cache was last written by. A build change
+        /// means a new bundled snapshot that may carry parser or data fixes, so the
+        /// cache is discarded rather than allowed to outrank it on timestamp alone.
+        static let seedBuild = "seedBuildVersion"
     }
 
     /// App Group suite when the entitlement is honoured; otherwise the process defaults,
