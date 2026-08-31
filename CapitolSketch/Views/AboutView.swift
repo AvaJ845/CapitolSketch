@@ -78,7 +78,7 @@ struct AboutView: View {
                             : store.feed.generatedAt.formatted(date: .abbreviated, time: .shortened))
 
                     Button {
-                        Task { await store.refresh() }
+                        Task { await store.refresh(force: true) }
                     } label: {
                         HStack {
                             Text("Check for new filings")

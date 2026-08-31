@@ -46,7 +46,10 @@ struct FeedView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if store.trades.isEmpty {
+                if store.isLoading {
+                    ProgressView("Loading filings…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if store.trades.isEmpty {
                     EmptyStateView(
                         icon: "tray",
                         title: "No filings loaded",
@@ -92,7 +95,7 @@ struct FeedView: View {
             .navigationTitle("Disclosures")
             .searchable(text: $filter.search, prompt: "Member, ticker, or company")
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
-            .refreshable { await store.refresh() }
+            .refreshable { await store.refresh(force: true) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

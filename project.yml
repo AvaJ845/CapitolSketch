@@ -29,6 +29,13 @@ targets:
     platform: iOS
     sources:
       - path: CapitolSketch
+        excludes:
+          - "Resources/CapitolSketch.icon/**"
+      # An Icon Composer .icon is a package: reference it as one file in the resources
+      # phase, or XcodeGen walks into it and adds icon.json/Assets as loose members.
+      - path: CapitolSketch/Resources/CapitolSketch.icon
+        type: file
+        buildPhase: resources
       - path: Shared
     dependencies:
       - package: DisclosureKit
@@ -40,6 +47,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.avaresearch.capitolsketch
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
+
+        # Icon Composer icon at CapitolSketch/Resources/CapitolSketch.icon. Authored as a
+        # single multilayer .icon so the system renders Default/Dark/Mono/Tinted itself.
+        ASSETCATALOG_COMPILER_APPICON_NAME: CapitolSketch
 
         SDKROOT: iphoneos
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
