@@ -97,6 +97,7 @@ struct RootView: View {
                 // simulator seed — waits until it is in hand.
                 seedWatchlistIfRequested()
                 routeToFiling(notifications.pendingRowID)
+                openDemoFilingIfRequested()
                 Task { await checkForWatchlistAlerts() }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -209,6 +210,19 @@ struct RootView: View {
               watchlist.isEmpty else { return }
         for ticker in ["NVDA", "AAPL", "MSFT", "BE"] { watchlist.add(ticker) }
         watchlist.markAllSeen(in: store.trades)
+    }
+
+    /// `-demo-filing` opens a representative disclosure for App Store captures: the most
+    /// recent trade that has a ticker and a filing description, so the detail screen is
+    /// shown full rather than sparse.
+    private func openDemoFilingIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-demo-filing"),
+              routedTrade == nil,
+              let trade = store.trades.first(where: {
+                  $0.ticker != nil && !($0.filingDescription ?? "").isEmpty && !$0.hasImpossibleDate
+              })
+        else { return }
+        routedTrade = trade
     }
 
     /// Notifies about watchlist hits the user hasn't seen. The Watchlist tab is what
