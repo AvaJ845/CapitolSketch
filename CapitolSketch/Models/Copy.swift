@@ -89,8 +89,9 @@ enum Copy {
         """
 
     static let scannedPaper = """
-        Some filings are photographs of paper forms with no readable text. Those \
-        transactions are missing entirely, and the count is shown on this screen.
+        Some filings are photographs of paper forms with no text layer. They are run \
+        through OCR; what it recovers is shown but flagged lower-confidence, and the \
+        rest are missing, with the count shown on this screen.
         """
 
     static let amountsAreRanges = """

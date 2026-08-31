@@ -29,13 +29,21 @@ public struct FilingRef: Hashable, Sendable {
 
 public struct ParseResult: Sendable {
     public var trades: [Trade]
-    /// False when the PDF yielded no extractable text at all (a scan).
+    /// False when the PDF yielded no usable text at all — no embedded text layer and
+    /// OCR of the page images also came back empty.
     public var hadReadableText: Bool
+    /// True when the text came from optical character recognition of a scanned filing
+    /// rather than an embedded text layer. Those rows are lower-confidence and say so.
+    public var recoveredByOCR: Bool
     public var warnings: [String]
 
-    public init(trades: [Trade], hadReadableText: Bool, warnings: [String] = []) {
+    public init(
+        trades: [Trade], hadReadableText: Bool,
+        recoveredByOCR: Bool = false, warnings: [String] = []
+    ) {
         self.trades = trades
         self.hadReadableText = hadReadableText
+        self.recoveredByOCR = recoveredByOCR
         self.warnings = warnings
     }
 }
@@ -54,7 +62,7 @@ public enum PTRParser {
     /// Transaction code, trade date, notification date, then everything else as the tail.
     /// `S (partial)` precedes the bare `S` so the alternation prefers the longer match.
     private static let anchor = try! NSRegularExpression(
-        pattern: #"(?:^|\s)(S \(partial\)|P|S|E)\s+(\d{1,2}/\d{1,2}/\d{4})\s+(\d{1,2}/\d{1,2}/\d{4})\s*(.*)$"#
+        pattern: #"(?:^|\s)(S \(partial\)|P|S|E)\s+(\d{1,2}/\d{1,2}/\d{2,4})\s+(\d{1,2}/\d{1,2}/\d{2,4})\s*(.*)$"#
     )
 
     private static let money = #"\$[\d,]+(?:\.\d{2})?"#
@@ -121,19 +129,45 @@ public enum PTRParser {
 
     #if canImport(PDFKit)
     public static func parse(pdfAt url: URL, filing: FilingRef) -> ParseResult {
-        guard let doc = PDFDocument(url: url), let text = doc.string else {
+        guard let doc = PDFDocument(url: url) else {
             return ParseResult(trades: [], hadReadableText: false,
                                warnings: ["PDF could not be opened"])
         }
-        return parse(text: text, filing: filing)
+        return parse(document: doc, filing: filing)
     }
 
     public static func parse(pdfData data: Data, filing: FilingRef) -> ParseResult {
-        guard let doc = PDFDocument(data: data), let text = doc.string else {
+        guard let doc = PDFDocument(data: data) else {
             return ParseResult(trades: [], hadReadableText: false,
                                warnings: ["PDF could not be opened"])
         }
-        return parse(text: text, filing: filing)
+        return parse(document: doc, filing: filing)
+    }
+
+    /// Prefers the embedded text layer; falls back to OCR of the page images when the
+    /// filing is a scan. About a fifth of House PTRs are filed as photographs of paper.
+    private static func parse(document doc: PDFDocument, filing: FilingRef) -> ParseResult {
+        if let text = doc.string, text.contains(where: { !$0.isWhitespace }) {
+            return parse(text: text, filing: filing)
+        }
+        #if canImport(Vision)
+        if let ocr = ocrText(from: doc), ocr.contains(where: { !$0.isWhitespace }) {
+            var result = parse(text: ocr, filing: filing)
+            result.recoveredByOCR = true
+            result.warnings.insert(
+                "text recovered by OCR from a scanned filing — check every field against the PDF",
+                at: 0
+            )
+            result.trades = result.trades.map {
+                var t = $0
+                appendWarning("recovered by OCR", to: &t)
+                return t
+            }
+            return result
+        }
+        #endif
+        return ParseResult(trades: [], hadReadableText: false,
+                           warnings: ["no extractable text (scanned filing)"])
     }
     #endif
 
