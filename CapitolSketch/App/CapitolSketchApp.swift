@@ -7,6 +7,7 @@ struct CapitolSketchApp: App {
     @State private var store = TradeStore()
     @State private var watchlist = WatchlistStore()
     @State private var appearance = AppearanceStore()
+    @State private var appIcon = AppIconStore()
     @State private var notifications = NotificationCoordinator()
 
     var body: some Scene {
@@ -15,6 +16,7 @@ struct CapitolSketchApp: App {
                 .environment(store)
                 .environment(watchlist)
                 .environment(appearance)
+                .environment(appIcon)
                 .environment(notifications)
                 .preferredColorScheme(appearance.colorScheme)
                 .tint(Ink.accent)

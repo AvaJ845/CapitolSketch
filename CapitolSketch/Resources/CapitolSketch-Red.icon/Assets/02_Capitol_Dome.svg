@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+
+<g id="capitol-dome">
+  <!-- Finial -->
+  <path fill="#FFFFFF" d="M512 142c-7 0-13 6-13 13v19h26v-19c0-7-6-13-13-13z"/>
+  <path fill="#FFFFFF" d="M500 173h24l10 25h-44l10-25z"/>
+
+  <!-- Dome -->
+  <path fill="#FFFFFF" d="M360 430c0-105 68-190 152-190s152 85 152 190h-38c0-79-51-143-114-143s-114 64-114 143h-38z"/>
+  <path fill="#FFFFFF" d="M394 430c0-75 53-135 118-135s118 60 118 135h-32c0-55-39-99-86-99s-86 44-86 99h-32z"/>
+
+  <!-- Drum -->
+  <path fill="#FFFFFF" d="M350 426h324v86H350z"/>
+  <path fill="#FFFFFF" d="M335 500h354v34H335z"/>
+
+  <!-- Drum columns / windows -->
+  <g fill="#D92D3A">
+    <rect x="371" y="445" width="18" height="61" rx="4"/>
+    <rect x="413" y="445" width="18" height="61" rx="4"/>
+    <rect x="455" y="445" width="18" height="61" rx="4"/>
+    <rect x="551" y="445" width="18" height="61" rx="4"/>
+    <rect x="593" y="445" width="18" height="61" rx="4"/>
+    <rect x="635" y="445" width="18" height="61" rx="4"/>
+  </g>
+
+  <!-- Main building -->
+  <path fill="#FFFFFF" d="M302 527h420l-22 42H324l-22-42z"/>
+  <path fill="#FFFFFF" d="M330 563h364v154H330z"/>
+
+  <!-- Columns -->
+  <g fill="#FFFFFF">
+    <rect x="350" y="575" width="26" height="142" rx="5"/>
+    <rect x="402" y="575" width="26" height="142" rx="5"/>
+    <rect x="454" y="575" width="26" height="142" rx="5"/>
+    <rect x="546" y="575" width="26" height="142" rx="5"/>
+    <rect x="598" y="575" width="26" height="142" rx="5"/>
+    <rect x="650" y="575" width="26" height="142" rx="5"/>
+  </g>
+
+  <!-- Pediment -->
+  <path fill="#FFFFFF" d="M300 568h424l-212-105-212 105z"/>
+  <path fill="#D92D3A" d="M395 550h234l-117-58-117 58z"/>
+
+  <!-- Base -->
+  <path fill="#FFFFFF" d="M286 710h452v30H286z"/>
+  <path fill="#FFFFFF" d="M268 740h488v34H268z"/>
+</g>
+</svg>

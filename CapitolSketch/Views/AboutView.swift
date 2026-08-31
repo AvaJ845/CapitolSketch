@@ -6,6 +6,7 @@ struct AboutView: View {
     @Environment(TradeStore.self) private var store
     @Environment(WatchlistStore.self) private var watchlist
     @Environment(AppearanceStore.self) private var appearance
+    @Environment(AppIconStore.self) private var appIcon
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
 
@@ -34,6 +35,23 @@ struct AboutView: View {
                     .pickerStyle(.segmented)
                     .accessibilityLabel("Appearance")
                     .listRowBackground(Ink.card)
+                }
+
+                if appIcon.supportsAlternateIcons {
+                    Section("App icon") {
+                        ForEach(AppIconStore.Option.allCases) { option in
+                            Button {
+                                Task { await appIcon.select(option) }
+                            } label: {
+                                iconRow(option)
+                            }
+                            .listRowBackground(Ink.card)
+                        }
+                        if let error = appIcon.lastError {
+                            Text(error).font(.caption).foregroundStyle(Ink.lag)
+                                .listRowBackground(Ink.card)
+                        }
+                    }
                 }
 
                 Section("What this app is") {
@@ -188,5 +206,33 @@ struct AboutView: View {
             Text(value).monospacedDigit()
         }
         .font(.callout)
+    }
+
+    private func iconRow(_ option: AppIconStore.Option) -> some View {
+        let selected = appIcon.current == option
+        return HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(option.background)
+                .frame(width: 40, height: 40)
+                .overlay {
+                    Image(systemName: "building.columns.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(option.mark)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .strokeBorder(Ink.hairline, lineWidth: 0.5)
+                }
+            Text(option.label).foregroundStyle(.primary)
+            Spacer()
+            if selected {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Ink.accent)
+                    .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(option.label)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
