@@ -78,8 +78,12 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: CapitolSketch/Info.plist
 
+        # Xcode-managed signing against the AVA Research team. Automatic signing
+        # registers the App IDs (app + widget) and the App Group on first device build
+        # or archive; the Apple ID must be added in Xcode ▸ Settings ▸ Accounts.
+        # For a simulator-only / unsigned build, pass CODE_SIGNING_ALLOWED=NO to xcodebuild.
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_ALLOWED: NO
+        DEVELOPMENT_TEAM: "3L683975L8"
       configs:
         Debug:
           ONLY_ACTIVE_ARCH: YES
@@ -160,7 +164,7 @@ targets:
         INFOPLIST_FILE: CapitolSketchWidget/Info.plist
 
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_ALLOWED: NO
+        DEVELOPMENT_TEAM: "3L683975L8"
       configs:
         Debug:
           ONLY_ACTIVE_ARCH: YES
