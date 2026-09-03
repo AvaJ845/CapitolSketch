@@ -24,14 +24,6 @@ final class AppearanceStore {
             }
         }
 
-        var symbol: String {
-            switch self {
-            case .system: return "circle.lefthalf.filled"
-            case .light: return "sun.max"
-            case .dark: return "moon"
-            }
-        }
-
         /// Nil hands the decision back to the system.
         var colorScheme: ColorScheme? {
             switch self {

@@ -128,7 +128,9 @@ public enum PTRParser {
     // MARK: - Entry points
 
     #if canImport(PDFKit)
-    public static func parse(pdfAt url: URL, filing: FilingRef) -> ParseResult {
+    /// Convenience for a filing already on disk. Only the test fixtures use this; the
+    /// app and `seedgen` both parse downloaded bytes through `parse(pdfData:)`.
+    static func parse(pdfAt url: URL, filing: FilingRef) -> ParseResult {
         guard let doc = PDFDocument(url: url) else {
             return ParseResult(trades: [], hadReadableText: false,
                                warnings: ["PDF could not be opened"])

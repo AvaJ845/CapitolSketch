@@ -179,6 +179,10 @@ struct RootView: View {
 
     // MARK: - Routing
 
+    /// `capitolsketch://` deep links. A hostile link can only pick a tab or ask for a
+    /// filing by id; the id is used solely as an equality match against rows already in
+    /// the loaded feed (`routeToFiling`), so an unknown or crafted id navigates nowhere
+    /// and nothing is parsed, written or escalated.
     private func handle(url: URL) {
         switch url.host {
         case "watchlist": selection = .watchlist

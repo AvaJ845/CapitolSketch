@@ -133,9 +133,8 @@ if opts.senate {
 }
 
 let combinedTrades = output.trades + (senateOutput?.trades ?? [])
-let deduped = deduplicate(combinedTrades).sorted {
-    $0.sortDate == $1.sortDate ? $0.id > $1.id : $0.sortDate > $1.sortDate
-}
+// Same de-dup + ordering the app's on-device merge runs, via the shared helper.
+let deduped = FeedBuilder.sorted(deduplicate(combinedTrades))
 log("de-duplicated \(combinedTrades.count) → \(deduped.count) rows")
 
 // 4. Report what did not work, loudly. These used to be counted as failures and dropped.
