@@ -294,4 +294,34 @@ struct FeedTests {
         #expect(t.disclosureLagDays == 28)
         #expect(t.disclosureGapPhrase == "disclosed 28 days later")
     }
+
+    @Test("Trade.with replaces only the named fields and leaves the rest identical")
+    func copyWith() {
+        let base = trade(ticker: "BE", type: "ST")
+
+        // An omitted argument keeps this value's field.
+        #expect(base.with() == base)
+
+        let warned = base.with(warnings: base.warnings + ["recovered by OCR"])
+        #expect(warned.warnings == ["recovered by OCR"])
+        #expect(warned.with(warnings: []).warnings.isEmpty)
+        // Everything except warnings is untouched.
+        #expect(warned.with(warnings: base.warnings) == base)
+
+        let retyped = base.with(assetType: "OP")
+        #expect(retyped.assetType == "OP")
+        #expect(retyped.ticker == base.ticker)
+        #expect(retyped.amount == base.amount)
+
+        let described = base.with(filingDescription: "Purchased 10 shares.")
+        #expect(described.filingDescription == "Purchased 10 shares.")
+
+        let reamounted = base.with(amount: .noneDisclosed)
+        #expect(reamounted.amount == .noneDisclosed)
+        #expect(reamounted.with(amount: base.amount) == base)
+
+        // withID is the same operation.
+        #expect(base.withID("x").id == "x")
+        #expect(base.withID("x").with(id: base.id) == base)
+    }
 }

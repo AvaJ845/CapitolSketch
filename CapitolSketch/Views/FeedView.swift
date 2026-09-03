@@ -80,7 +80,7 @@ struct FeedView: View {
                         } footer: {
                             VStack(alignment: .leading, spacing: 8) {
                                 if results.count > 400 {
-                                    Text("Showing the 400 most recent. Search to narrow it down.")
+                                    Text("Search to narrow it down.")
                                 }
                                 Text(Copy.historyNotHeadlines)
                                 Text(Copy.rangesOnly)
@@ -120,6 +120,13 @@ struct FeedView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(results.count.formatted()) transactions")
                 .font(.title3.weight(.semibold).monospacedDigit())
+            // The list is capped at 400 rows; say so here rather than only in a footer
+            // the reader may never scroll to, so the rest are known to exist.
+            if results.count > 400 {
+                Text("Showing 400 of \(results.count.formatted())")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
             DataAgeLine(generatedAt: store.generatedAt)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

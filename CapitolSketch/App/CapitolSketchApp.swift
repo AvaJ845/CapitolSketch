@@ -38,6 +38,10 @@ struct RootView: View {
     @State private var selection: Section = .feed
     @State private var routedTrade: Trade?
     @State private var splitVisibility: NavigationSplitViewVisibility = .automatic
+    /// When the scene last became active and actually ran the refresh + alert scan.
+    /// A quick app-switch flurry (Control Center, notification banner, share sheet)
+    /// should not re-run either every time.
+    @State private var lastForegroundWork: Date = .distantPast
 
     /// The four top-level areas. On iPhone these are tabs; on iPad they are the sidebar.
     enum Section: Hashable, CaseIterable {
@@ -95,18 +99,24 @@ struct RootView: View {
                 // The feed loads off the main actor, so anything that needs trades — a
                 // pending notification/widget tap, the first watchlist alert check, the
                 // simulator seed — waits until it is in hand.
+                watchlist.rebaseSeenRowIDsIfNeeded(against: store.trades)
                 seedWatchlistIfRequested()
                 routeToFiling(notifications.pendingRowID)
                 openDemoFilingIfRequested()
                 Task { await checkForWatchlistAlerts() }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    Task {
-                        await AlertService.clearBadge()
-                        await store.refresh()
-                        await checkForWatchlistAlerts()
-                    }
+                guard phase == .active else { return }
+                // Clearing the badge is free and expected every time the app opens.
+                Task { await AlertService.clearBadge() }
+                // The refresh (30-min network throttle) and the alert scan are not:
+                // skip both entirely if the app was only backgrounded for a moment.
+                let now = Date()
+                guard now.timeIntervalSince(lastForegroundWork) > 60 else { return }
+                lastForegroundWork = now
+                Task {
+                    await store.refresh()
+                    await checkForWatchlistAlerts()
                 }
             }
     }

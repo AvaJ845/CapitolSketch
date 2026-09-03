@@ -83,6 +83,55 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
         self.warnings = warnings
     }
 
+    /// A copy with selected fields replaced; any argument left `nil` keeps this value's
+    /// version of that field.
+    ///
+    /// `Trade` is deliberately all `let`, so the parser used to rebuild the whole struct
+    /// by hand every time it enriched a row. This is that, once. The four already-optional
+    /// fields (`ticker`, `assetType`, `filingDescription`, `documentURL`) can be set or
+    /// left unchanged but not cleared back to `nil` here — nothing in the pipeline needs
+    /// to clear them.
+    public func with(
+        id: String? = nil,
+        memberID: String? = nil,
+        memberName: String? = nil,
+        owner: TradeOwner? = nil,
+        asset: String? = nil,
+        ticker: String? = nil,
+        assetType: String? = nil,
+        txType: TradeType? = nil,
+        txDate: CalendarDate? = nil,
+        disclosedDate: CalendarDate? = nil,
+        amount: DisclosedAmount? = nil,
+        filingDescription: String? = nil,
+        filingID: String? = nil,
+        documentURL: URL? = nil,
+        warnings: [String]? = nil
+    ) -> Trade {
+        Trade(
+            id: id ?? self.id,
+            memberID: memberID ?? self.memberID,
+            memberName: memberName ?? self.memberName,
+            owner: owner ?? self.owner,
+            asset: asset ?? self.asset,
+            ticker: ticker ?? self.ticker,
+            assetType: assetType ?? self.assetType,
+            txType: txType ?? self.txType,
+            txDate: txDate ?? self.txDate,
+            disclosedDate: disclosedDate ?? self.disclosedDate,
+            amount: amount ?? self.amount,
+            filingDescription: filingDescription ?? self.filingDescription,
+            filingID: filingID ?? self.filingID,
+            documentURL: documentURL ?? self.documentURL,
+            warnings: warnings ?? self.warnings
+        )
+    }
+
+    /// A copy with a different `id`. The parser gives a row a provisional id while it is
+    /// being assembled, then a content-derived one once the row is complete — see
+    /// `withStableIDs`.
+    public func withID(_ id: String) -> Trade { with(id: id) }
+
     /// Days between trading and disclosing. The STOCK Act allows 45.
     public var disclosureLagDays: Int { txDate.days(to: disclosedDate) }
 

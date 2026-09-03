@@ -37,6 +37,26 @@ struct PTRParserTests {
         #expect(deduplicate(july24BE).count == 2)
     }
 
+    @Test("Row ids are content-derived and stable, not row positions")
+    func rowIDsAreStableAndContentDerived() {
+        let a = Fixture.pelosiMultiAsset.parse().trades
+        let b = Fixture.pelosiMultiAsset.parse().trades
+
+        // Same filing parsed twice → byte-identical ids, so `seenRowIDs` written on one
+        // launch still matches on the next.
+        #expect(a.map(\.id) == b.map(\.id))
+        // Unique within the filing, and scoped to it.
+        #expect(Set(a.map(\.id)).count == a.count)
+        #expect(a.allSatisfy { $0.id.hasPrefix("20035143-") })
+        // Not the old "<docID>-<row index>" scheme — that was the thing being fixed.
+        #expect(a.map(\.id) != (0..<a.count).map { "20035143-\($0)" })
+        // The id follows content: the stock and option legs of the same day's BE trade
+        // differ only by asset type and still get distinct ids.
+        let be0724 = a.filter { $0.ticker == "BE" && $0.txDate.iso == "2026-07-24" }
+        #expect(be0724.count == 2)
+        #expect(Set(be0724.map(\.id)).count == 2)
+    }
+
     @Test("Option descriptions survive being printed after their row")
     func descriptionAfterRow() {
         let r = Fixture.pelosiMultiAsset.parse()

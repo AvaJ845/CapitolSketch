@@ -48,12 +48,6 @@ public struct DisclosedAmount: Codable, Hashable, Sendable {
     /// True only when there are two genuinely different endpoints to draw.
     public var isRange: Bool { kind == .range && highCents > lowCents }
 
-    /// Used for ordering by size. For a range this is the midpoint, which is an estimate
-    /// and is never presented to the user as though it were a disclosed figure.
-    public var sortMagnitudeCents: Int {
-        isRange ? (lowCents + highCents) / 2 : lowCents
-    }
-
     // MARK: - Formatting
 
     private static let dollars: NumberFormatter = {

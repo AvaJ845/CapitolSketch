@@ -58,7 +58,9 @@ struct SenateParserTests {
         )
         #expect(r.trades.count == 5)
         #expect(r.warnings.isEmpty)
-        #expect(r.trades.map(\.id) == (0..<5).map { "57cf1745-\($0)" })
+        // Ids are filing-scoped and content-derived, not row positions.
+        #expect(r.trades.allSatisfy { $0.id.hasPrefix("57cf1745-") })
+        #expect(Set(r.trades.map(\.id)).count == 5)
         #expect(r.trades.allSatisfy { $0.owner == .self })
         #expect(r.trades.allSatisfy { $0.assetType == "ST" })
         #expect(r.trades.allSatisfy { $0.amount.kind == .range })
