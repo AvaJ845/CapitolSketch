@@ -2,7 +2,6 @@ import Foundation
 
 /// A row of the House Clerk's annual filing index.
 public struct FilingIndexRow: Hashable, Sendable {
-    public let prefix: String
     public let last: String
     public let first: String
     public let suffix: String
@@ -49,7 +48,36 @@ func houseDocumentURL(year: Int, docID: String) -> URL? {
 /// The Clerk publishes the index as both a ZIP and a plain tab-separated `.txt` at the
 /// same path. Using the `.txt` directly means no archive reader and no `Process`, so the
 /// identical code runs in the Mac CLI and on iOS.
+///
+/// # Threat model for every network read in this file
+///
+/// The app's whole claim is "this is the public record", so a network attacker or a
+/// compromised CDN that could substitute a fabricated filing is the interesting threat.
+/// The defences, and their deliberate limits:
+///
+/// - **Transport.** Every URL here is `https://disclosures-clerk.house.gov`, hard-coded,
+///   scheme included. App Transport Security is locked in `Info.plist`
+///   (`NSAllowsArbitraryLoads: false`, no exception domains), so the OS refuses a
+///   downgrade to HTTP or to a TLS version below 1.2 and enforces the certificate chain.
+/// - **No certificate pinning, on purpose.** The Clerk sits behind a rotating
+///   government-managed certificate and (at times) a commercial CDN; pinning a leaf or
+///   intermediate we do not control would turn a routine cert rotation into a dead app
+///   in the field, which for a civic-record reader is the worse failure. The bar is
+///   therefore "valid publicly-trusted TLS to the real hostname", not "this exact key".
+/// - **What a successful MITM still cannot do.** The watchlist never takes part in any
+///   request (see `IncrementalRefresher`), so there is nothing user-specific to steal on
+///   the wire. Substituted *content* is the residual risk, and it is mitigated by
+///   surface rather than by crypto: every screen shows the data's age, every row links
+///   back to the source PDF on the same locked origin, and the parser reports rather
+///   than invents (`ParseStats`, per-row warnings).
+/// - **Resource bounds.** Responses are size-capped (`maxResponseBytes`) so a hostile or
+///   broken server cannot exhaust memory, and the per-run download count is capped by
+///   the caller (`IncrementalRefresher.maxDownloads`).
 public enum FilingIndex {
+
+    /// Hard ceiling on any single index response. The real file is a few MB; anything
+    /// past this is a broken or hostile server and is refused rather than buffered.
+    static let maxResponseBytes = 64 * 1024 * 1024
 
     public static func textURL(year: Int) -> URL {
         URL(string: "https://disclosures-clerk.house.gov/public_disc/financial-pdfs/\(year)FD.txt")!
@@ -69,9 +97,10 @@ public enum FilingIndex {
             let f = line.components(separatedBy: "\t")
             guard f.count >= 9 else { continue }
 
+            // Column 0 is the name prefix (title); nothing downstream reads it, so it
+            // is parsed past rather than stored.
             let year = Int(f[6].trimmingCharacters(in: .whitespaces)) ?? fallbackYear
             rows.append(FilingIndexRow(
-                prefix: f[0],
                 last: f[1].trimmingCharacters(in: .whitespaces),
                 first: f[2].trimmingCharacters(in: .whitespaces),
                 suffix: f[3].trimmingCharacters(in: .whitespaces),
@@ -119,6 +148,13 @@ public enum FilingIndex {
             guard let http, (200..<300).contains(http.statusCode) else {
                 throw IndexError.badStatus(http?.statusCode ?? -1, year)
             }
+            // `URLSession.data` has already buffered the body, so this bounds what gets
+            // decoded, parsed and cached — three more copies — rather than the socket
+            // read itself. A transport-level bound would mean streaming, which is not
+            // worth it against a TLS-authenticated government host.
+            guard data.count <= maxResponseBytes else {
+                throw IndexError.tooLarge(year, data.count)
+            }
             guard let text = String(data: data, encoding: .utf8) else {
                 throw IndexError.undecodable(year)
             }
@@ -144,11 +180,13 @@ public enum FilingIndex {
     public enum IndexError: LocalizedError {
         case badStatus(Int, Int)
         case undecodable(Int)
+        case tooLarge(Int, Int)
 
         public var errorDescription: String? {
             switch self {
             case let .badStatus(code, year): return "index \(year): HTTP \(code)"
             case let .undecodable(year): return "index \(year): not valid UTF-8"
+            case let .tooLarge(year, bytes): return "index \(year): response too large (\(bytes) bytes)"
             }
         }
     }

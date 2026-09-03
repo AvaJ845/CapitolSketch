@@ -31,8 +31,6 @@ public enum IncrementalRefresher {
         /// True when more new filings exist than this run was willing to fetch.
         public var moreRemaining = false
 
-        public var didChangeAnything: Bool { addedTrades > 0 }
-
         /// Plain-language summary. The app never claims to be current without saying
         /// what "current" cost, so this is written to be shown, not just logged.
         public var summary: String {

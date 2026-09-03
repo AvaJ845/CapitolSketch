@@ -77,6 +77,12 @@ final class TradeStore {
     /// Its `generatedAt` predates any on-device refresh, so newest-wins would keep serving
     /// the stale cache. On a build change, drop the cache: the next refresh rebuilds it
     /// from the fresh snapshot.
+    ///
+    /// This runs in a detached task and can race a widget timeline that is writing
+    /// `feed.json` at the same moment. Both writers are first-party and every write is
+    /// atomic, so the worst case is one cycle with a missing or superseded feed file,
+    /// which the next refresh (app or widget) rebuilds — there is no partial-file or
+    /// cross-tenant exposure (an App Group is scoped to this app and its extension).
     nonisolated private static func discardCacheIfBuildChanged() {
         let defaults = SharedContainer.defaults
         let build = (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? ""
@@ -205,6 +211,10 @@ final class TradeStore {
 
     // MARK: - Decoding
 
+    /// Decodes a feed file. The inputs are the app's own bundle resource and the App
+    /// Group cache written only by this app and its widget (both first-party, the group
+    /// is scoped to them) — not attacker-controlled — so there is no untrusted-input
+    /// hardening here beyond the schema-version check the callers apply.
     nonisolated static func decode(contentsOf url: URL) -> TradeFeed? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         let (_, decoder) = TradeFeed.makeCoder()

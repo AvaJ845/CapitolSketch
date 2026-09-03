@@ -166,6 +166,11 @@ public enum SenateFilingIndex {
               let filed = raw[4] as? String
         else { return nil }
 
+        // The captured id is interpolated into `SenateFilingRef.documentURL`. The class
+        // is only `[0-9a-f-]` so it cannot contain `.`, `/`, `@`, `?` or `#` — the id
+        // can look malformed but structurally cannot break out of the fixed
+        // `efdsearch.senate.gov/search/view/…/` path. (Build-time only regardless: this
+        // whole type is reached only from `seedgen`, never the app or the widget.)
         guard let match = firstMatch(
             in: linkHTML, pattern: #"/search/view/(ptr|paper)/([0-9a-f-]{36})/"#, group: 2
         ) else { return nil }

@@ -83,7 +83,12 @@ extension PTRParser {
         let scale: CGFloat = 200.0 / 72.0
         let width = Int((pageRect.width * scale).rounded())
         let height = Int((pageRect.height * scale).rounded())
-        guard width > 0, height > 0, width * height < 40_000_000 else { return nil }
+        // Bound each dimension before multiplying: a filing with an absurd MediaBox
+        // (this raster runs on device, on downloaded PDF bytes) could otherwise overflow
+        // the `width * height` product. A real page at 200 dpi is well under 3,000 px a
+        // side; 20,000 is a generous ceiling that still keeps the area check exact.
+        guard width > 0, height > 0, width < 20_000, height < 20_000,
+              width * height < 40_000_000 else { return nil }
 
         guard let context = CGContext(
             data: nil, width: width, height: height,

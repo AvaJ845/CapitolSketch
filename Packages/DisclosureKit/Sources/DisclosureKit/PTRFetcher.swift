@@ -123,20 +123,30 @@ public struct PTRFetcher: Sendable {
         )
     }
 
+    /// Ceiling on a single PDF. A House PTR is tens to a few hundred KB; the largest
+    /// multi-hundred-page filings are a handful of MB. Past this is a broken or hostile
+    /// server — see the threat model on `FilingIndex`.
+    static let maxPDFBytes = 64 * 1024 * 1024
+
     private func fetchPDF(for filing: FilingIndexRow) async -> Data? {
         let cached = cacheDirectory?
             .appendingPathComponent("ptr-\(filing.year)-\(filing.docID).pdf")
         if let cached, let data = try? Data(contentsOf: cached) { return data }
+        // `filing.documentURL` is `houseDocumentURL`, which pins scheme + host and only
+        // interpolates a docID it has checked is bare alphanumerics.
         guard let url = filing.documentURL else { return nil }
         do {
             let (data, response) = try await session.data(from: url)
             guard let http = response as? HTTPURLResponse,
-                  (200..<300).contains(http.statusCode) else { return nil }
+                  (200..<300).contains(http.statusCode),
+                  data.count <= Self.maxPDFBytes else { return nil }
             if let cached {
                 try? FileManager.default.createDirectory(
                     at: cached.deletingLastPathComponent(), withIntermediateDirectories: true
                 )
-                try? data.write(to: cached)
+                // Atomic: a crash mid-write must not leave a truncated PDF that the
+                // cache check above would then hand back forever without re-fetching.
+                try? data.write(to: cached, options: .atomic)
             }
             return data
         } catch {
