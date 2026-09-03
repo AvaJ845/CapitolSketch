@@ -18,6 +18,11 @@ enum SharedContainer {
         /// means a new bundled snapshot that may carry parser or data fixes, so the
         /// cache is discarded rather than allowed to outrank it on timestamp alone.
         static let seedBuild = "seedBuildVersion"
+        /// The scheme `seenRowIDs` were recorded under. Row identifiers moved from
+        /// "<filing>-<row position>" to a content-derived hash; a stored value from the
+        /// old scheme can never match the new feed, so it is rebased rather than left to
+        /// re-surface every watched filing at once.
+        static let rowIDScheme = "rowIDScheme"
     }
 
     /// App Group suite when the entitlement is honoured; otherwise the process defaults,

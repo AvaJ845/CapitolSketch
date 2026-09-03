@@ -97,6 +97,11 @@ struct AmountView: View {
             endpoint(amount.headline)
             RangeTrack(axis: .horizontal, openEnded: true)
                 .frame(minWidth: 40, idealWidth: 64, maxWidth: 88, minHeight: 14)
+            // The open end is a 1.4pt arrowhead; the meaning cannot rest on that alone.
+            Text("no ceiling")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
         }
         .fixedSize(horizontal: false, vertical: true)
     }

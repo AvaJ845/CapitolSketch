@@ -31,8 +31,17 @@ public struct FilingIndexRow: Hashable, Sendable {
     public var isPeriodicTransactionReport: Bool { filingType == "P" }
 
     public var documentURL: URL? {
-        URL(string: "https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/\(year)/\(docID).pdf")
+        houseDocumentURL(year: year, docID: docID)
     }
+}
+
+/// Builds the Clerk PDF URL for a filing, or nil when the document ID is not the plain
+/// alphanumeric token the Clerk publishes. The scheme, host and path are fixed here;
+/// guarding the one interpolated field stops a garbled or hostile index row from
+/// pointing the "View the source filing" link anywhere other than a Clerk PDF.
+func houseDocumentURL(year: Int, docID: String) -> URL? {
+    guard !docID.isEmpty, docID.allSatisfy({ $0.isLetter || $0.isNumber }) else { return nil }
+    return URL(string: "https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/\(year)/\(docID).pdf")
 }
 
 /// Reads the House Clerk's annual bulk filing index.

@@ -48,24 +48,9 @@ extension DisclosedAmount {
 }
 
 extension TradeType {
-    /// Kept for call sites that want the SF Symbol; the on-screen badge uses
-    /// `directionLabel` (`↑ Bought` / `↓ Sold`) so colour never carries meaning.
-    var arrow: String {
-        switch self {
-        case .buy: return "arrow.up"
-        case .sell, .partialSell: return "arrow.down"
-        case .exchange: return "arrow.left.arrow.right"
-        }
-    }
-
+    /// Spoken direction for VoiceOver: `↑ Bought` / `↓ Sold`. The word carries the
+    /// meaning; colour never does.
     var directionPhrase: String { directionLabel }
-}
-
-extension TradeOwner {
-    /// Whose account traded. Rendered in body weight rather than as a muted chip: most
-    /// of the best-known trades in this data set are spouse-owned, and quietly greying
-    /// that out would be an editorial choice dressed as a visual one.
-    var isNoteworthy: Bool { self != .self }
 }
 
 extension Trade {
@@ -118,20 +103,5 @@ extension CalendarDate {
         return "\(name) \(day), \(year)"
     }
 
-    var shortLabel: String {
-        let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        let name = (1...12).contains(month) ? months[month - 1] : "\(month)"
-        return "\(name) \(day)"
-    }
 }
 
-extension ParseStats {
-    /// The gap in the data, stated without softening it.
-    var scannedPaperSentence: String? {
-        guard filingsProcessed > 0, !filingsWithoutText.isEmpty else { return nil }
-        let pct = Int((Double(filingsWithoutText.count) / Double(filingsProcessed) * 100).rounded())
-        return "\(filingsWithoutText.count) of \(filingsProcessed) filings (\(pct)%) are scanned "
-            + "paper with no readable text. Those transactions are missing from this app."
-    }
-}

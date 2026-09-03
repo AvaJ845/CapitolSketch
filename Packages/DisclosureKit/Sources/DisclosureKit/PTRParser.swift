@@ -23,7 +23,7 @@ public struct FilingRef: Hashable, Sendable {
     }
 
     public var documentURL: URL? {
-        URL(string: "https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/\(year)/\(docID).pdf")
+        houseDocumentURL(year: year, docID: docID)
     }
 }
 
@@ -187,7 +187,8 @@ public enum PTRParser {
         state.finish()
 
         return ParseResult(
-            trades: state.trades, hadReadableText: true, warnings: state.fileWarnings
+            trades: withStableIDs(state.trades, filingID: filing.docID),
+            hadReadableText: true, warnings: state.fileWarnings
         )
     }
 
@@ -241,14 +242,7 @@ public enum PTRParser {
         }
 
         func note(_ trade: inout Trade, _ warning: String) {
-            trade = Trade(
-                id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-                owner: trade.owner, asset: trade.asset, ticker: trade.ticker,
-                assetType: trade.assetType, txType: trade.txType, txDate: trade.txDate,
-                disclosedDate: trade.disclosedDate, amount: trade.amount,
-                filingDescription: trade.filingDescription, filingID: trade.filingID,
-                documentURL: trade.documentURL, warnings: trade.warnings + [warning]
-            )
+            trade = trade.with(warnings: trade.warnings + [warning])
         }
     }
 
@@ -585,14 +579,7 @@ public enum PTRParser {
     }
 
     private static func applyAssetType(_ code: String, to trade: inout Trade) {
-        trade = Trade(
-            id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-            owner: trade.owner, asset: trade.asset, ticker: trade.ticker,
-            assetType: code, txType: trade.txType, txDate: trade.txDate,
-            disclosedDate: trade.disclosedDate, amount: trade.amount,
-            filingDescription: trade.filingDescription, filingID: trade.filingID,
-            documentURL: trade.documentURL, warnings: trade.warnings
-        )
+        trade = trade.with(assetType: code)
     }
 
     /// Completes a row whose asset name was split by a page break.
@@ -600,36 +587,19 @@ public enum PTRParser {
         of trade: inout Trade, appending text: String, ticker: String?, assetType: String?
     ) {
         let merged = tidy([trade.asset, text].filter { !$0.isEmpty }.joined(separator: " "))
-        trade = Trade(
-            id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-            owner: trade.owner, asset: merged, ticker: trade.ticker ?? ticker,
-            assetType: trade.assetType ?? assetType, txType: trade.txType,
-            txDate: trade.txDate, disclosedDate: trade.disclosedDate, amount: trade.amount,
-            filingDescription: trade.filingDescription, filingID: trade.filingID,
-            documentURL: trade.documentURL, warnings: trade.warnings
+        trade = trade.with(
+            asset: merged,
+            ticker: trade.ticker ?? ticker,
+            assetType: trade.assetType ?? assetType
         )
     }
 
     private static func replacingAmount(_ trade: Trade, with amount: DisclosedAmount) -> Trade {
-        Trade(
-            id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-            owner: trade.owner, asset: trade.asset, ticker: trade.ticker,
-            assetType: trade.assetType, txType: trade.txType, txDate: trade.txDate,
-            disclosedDate: trade.disclosedDate, amount: amount,
-            filingDescription: trade.filingDescription, filingID: trade.filingID,
-            documentURL: trade.documentURL, warnings: trade.warnings
-        )
+        trade.with(amount: amount)
     }
 
     private static func appendWarning(_ w: String, to trade: inout Trade) {
-        trade = Trade(
-            id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-            owner: trade.owner, asset: trade.asset, ticker: trade.ticker,
-            assetType: trade.assetType, txType: trade.txType, txDate: trade.txDate,
-            disclosedDate: trade.disclosedDate, amount: trade.amount,
-            filingDescription: trade.filingDescription, filingID: trade.filingID,
-            documentURL: trade.documentURL, warnings: trade.warnings + [w]
-        )
+        trade = trade.with(warnings: trade.warnings + [w])
     }
 
     // MARK: - Descriptions
@@ -659,14 +629,7 @@ public enum PTRParser {
     }
 
     private static func withDescription(_ trade: Trade, _ text: String) -> Trade {
-        Trade(
-            id: trade.id, memberID: trade.memberID, memberName: trade.memberName,
-            owner: trade.owner, asset: trade.asset, ticker: trade.ticker,
-            assetType: trade.assetType, txType: trade.txType, txDate: trade.txDate,
-            disclosedDate: trade.disclosedDate, amount: trade.amount,
-            filingDescription: text, filingID: trade.filingID,
-            documentURL: trade.documentURL, warnings: trade.warnings
-        )
+        trade.with(filingDescription: text)
     }
 
     /// True when the next meaningful line is a description label, which means this line

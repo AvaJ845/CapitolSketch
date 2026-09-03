@@ -48,6 +48,23 @@ struct DisclosureDetailView: View {
                         .foregroundStyle(Ink.accent)
                     }
                     .listRowBackground(Ink.card)
+
+                    // The only growth loop the North Star allows: hand someone the public
+                    // record itself. The payload is the Clerk's PDF link and nothing about
+                    // who is sharing it or what they watch.
+                    ShareLink(
+                        item: url,
+                        subject: Text("\(trade.memberName) — \(trade.displaySymbol) disclosure"),
+                        message: Text("US House Periodic Transaction Report, filing \(trade.filingID)")
+                    ) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Share this filing").fontWeight(.medium)
+                            Spacer()
+                        }
+                        .foregroundStyle(Ink.accent)
+                    }
+                    .listRowBackground(Ink.card)
                 }
             } footer: {
                 Text("Every field below is transcribed from the source PDF — US House Clerk, "

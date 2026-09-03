@@ -85,7 +85,7 @@ public enum SenatePTRParser {
             }
 
             trades.append(Trade(
-                id: "\(filing.uuid)-\(index)",
+                id: "\(filing.uuid)-\(index)",   // provisional; replaced with a content id below
                 memberID: filing.memberID,
                 memberName: filing.memberName,
                 owner: owner,
@@ -106,7 +106,10 @@ public enum SenatePTRParser {
         if trades.isEmpty {
             warnings.append("report table had no readable transaction rows")
         }
-        return ParseResult(trades: trades, hadReadableText: true, warnings: warnings)
+        return ParseResult(
+            trades: withStableIDs(trades, filingID: filing.uuid),
+            hadReadableText: true, warnings: warnings
+        )
     }
 
     // MARK: - Field mapping

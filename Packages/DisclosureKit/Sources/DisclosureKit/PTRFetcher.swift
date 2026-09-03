@@ -211,12 +211,11 @@ public func deduplicate(_ trades: [Trade]) -> [Trade] {
     var seen = Set<String>()
     var out: [Trade] = []
     for t in trades {
-        // Asset type matters: a stock buy and a call-option buy on the same ticker,
-        // same day, in the same bracket are two distinct disclosures.
-        let key = [
-            t.memberID, t.ticker ?? t.asset, t.assetType ?? "", t.txType.rawValue,
-            t.txDate.iso, String(t.amount.lowCents), String(t.amount.highCents), t.owner.rawValue,
-        ].joined(separator: "|")
+        // The member, plus the fields that define the transaction. Asset type is in the
+        // fingerprint: a stock buy and a call-option buy on the same ticker, same day,
+        // in the same bracket are two distinct disclosures. This is the same key the
+        // row's content id is built from, so "same id" and "gets de-duplicated" agree.
+        let key = t.memberID + "|" + transactionFingerprint(t)
         if seen.insert(key).inserted { out.append(t) }
     }
     return out
