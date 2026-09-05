@@ -11,6 +11,9 @@ struct DisclosureDetailView: View {
     let trade: Trade
 
     @Environment(WatchlistStore.self) private var watchlist
+    @Environment(TradeStore.self) private var store
+
+    private var filingRowCount: Int { store.trades(inFiling: trade.filingID).count }
 
     var body: some View {
         List {
@@ -128,6 +131,20 @@ struct DisclosureDetailView: View {
                 }
             }
 
+            if filingRowCount > 1 {
+                Section {
+                    NavigationLink(value: FilingRoute(id: trade.filingID)) {
+                        Label(
+                            "See the full filing — \(filingRowCount) transactions",
+                            systemImage: "doc.on.doc"
+                        )
+                    }
+                    .listRowBackground(Ink.card)
+                } footer: {
+                    Text("This member disclosed several transactions in one filing.")
+                }
+            }
+
             if let ticker = trade.ticker {
                 Section {
                     Button {
@@ -219,5 +236,7 @@ struct TickerDetailView: View {
         .navigationTitle(ticker)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+        .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
+        .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
     }
 }

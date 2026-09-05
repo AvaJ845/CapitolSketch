@@ -88,6 +88,7 @@ struct WatchlistView: View {
             .navigationTitle("Watchlist")
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
+            .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: { Image(systemName: "plus") }

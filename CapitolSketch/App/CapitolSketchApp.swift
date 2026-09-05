@@ -76,12 +76,16 @@ struct RootView: View {
             .sheet(item: $routedTrade) { trade in
                 NavigationStack {
                     DisclosureDetailView(trade: trade)
+                        .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+                        .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
+                        .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
                         .toolbar {
                             ToolbarItem(placement: .topBarTrailing) {
                                 Button("Done") { routedTrade = nil }
                             }
                         }
                 }
+                .environment(store)
                 .environment(watchlist)
                 .tint(Ink.accent)
             }

@@ -197,6 +197,11 @@ final class TradeStore {
         trades.filter { $0.memberID == id }
     }
 
+    /// Every transaction in one filing (one PTR), ordered as member lists are.
+    func trades(inFiling id: String) -> [Trade] {
+        trades.inFiling(id).sorted { $0.sortDate > $1.sortDate }
+    }
+
     func trades(forTicker ticker: String) -> [Trade] {
         let t = ticker.uppercased()
         return trades.filter { $0.ticker?.uppercased() == t }
