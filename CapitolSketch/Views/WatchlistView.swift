@@ -20,6 +20,12 @@ struct WatchlistView: View {
             .sorted { $0.name < $1.name }
     }
 
+    /// Followed member IDs that resolve to nobody in the loaded snapshot — a member
+    /// followed from an earlier feed who has no filing in this one.
+    private var missingFollowedCount: Int {
+        watchlist.followedMemberIDs.count - followedMembers.count
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -43,11 +49,17 @@ struct WatchlistView: View {
                         }
 
                         if !followedMembers.isEmpty {
-                            Section("Members you follow") {
+                            Section {
                                 followedMemberChips
                                     .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
+                            } header: {
+                                Text("Members you follow")
+                            } footer: {
+                                if missingFollowedCount > 0 {
+                                    Text("\(missingFollowedCount) followed member\(missingFollowedCount == 1 ? " has" : "s have") no filing in this snapshot.")
+                                }
                             }
                         }
 
@@ -60,7 +72,7 @@ struct WatchlistView: View {
                             }
                         }
 
-                        Section("\(matches.count.formatted()) disclosed trades") {
+                        Section {
                             if matches.isEmpty {
                                 Text("Nothing disclosed yet for the tickers you watch or the members you follow.")
                                     .font(.callout)
@@ -72,6 +84,10 @@ struct WatchlistView: View {
                                         .disclosureRowChrome()
                                 }
                             }
+                        } header: {
+                            Text("\(matches.count.formatted()) disclosed trades")
+                        } footer: {
+                            TruncationNote(shown: 300, total: matches.count)
                         }
 
                         Section {
@@ -132,9 +148,9 @@ struct WatchlistView: View {
             HStack(spacing: 8) {
                 ForEach(followedMembers) { member in
                     NavigationLink(value: member) {
-                        TickerChip(
-                            ticker: member.name,
-                            count: store.trades(forMember: member.id).count
+                        MemberChip(
+                            name: member.name,
+                            filingCount: store.trades(forMember: member.id).count
                         )
                     }
                     .buttonStyle(.plain)

@@ -8,10 +8,20 @@ import DisclosureKit
 /// means. Orange is used only where the rest of the app uses it: a data-quality signal.
 struct DataQualityView: View {
     @Environment(TradeStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var trades: [Trade] { store.trades }
     private var stats: ParseStats { store.stats }
     private var lag: DisclosureLagStats { trades.disclosureLagStats }
+
+    /// Transaction counts by calendar year of the transaction, oldest first. Only shown
+    /// when the snapshot spans more than one filing year.
+    private var countsByYear: [(year: Int, count: Int)] {
+        guard store.feed.indexYears.count > 1 else { return [] }
+        let grouped = Dictionary(grouping: trades, by: { $0.txDate.year })
+            .mapValues(\.count)
+        return grouped.keys.sorted().map { ($0, grouped[$0] ?? 0) }
+    }
 
     private var ocrRecoveredCount: Int {
         trades.filter { t in t.warnings.contains { $0.contains("recovered by OCR") } }.count
@@ -28,6 +38,17 @@ struct DataQualityView: View {
 
     var body: some View {
         List {
+            if trades.isEmpty {
+                Section {
+                    Text(store.isLoading
+                         ? "Still loading the filings…"
+                         : "No filings are loaded, so there is nothing to count yet.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .listRowBackground(Ink.card)
+                }
+            }
+
             Section {
                 statRow(trades.count.formatted(),
                         "Disclosed transactions in the loaded filings.")
@@ -42,18 +63,25 @@ struct DataQualityView: View {
                 Text("The snapshot")
             }
 
+            if !countsByYear.isEmpty {
+                Section {
+                    ForEach(countsByYear, id: \.year) { row in
+                        factRow("\(row.year)", row.count.formatted())
+                    }
+                } header: {
+                    Text("By filing year")
+                } footer: {
+                    Text("Transaction counts by the year each trade took place. Counts only.")
+                }
+            }
+
             Section {
                 statRow("\(lag.medianDays) days", "Median gap between a transaction and its disclosure.")
                 statRow("\(lag.meanDays) days", "Mean gap, across \(lag.count.formatted()) transactions with usable dates.")
                 statRow("\(lag.overFortyFiveCount.formatted()) · \(lag.overFortyFivePercent)%",
                         "Disclosed more than 45 days after the transaction — the STOCK Act limit.")
                 ForEach(lag.buckets) { bucket in
-                    HStack {
-                        Text(bucket.label).foregroundStyle(.secondary)
-                        Spacer()
-                        Text(bucket.count.formatted()).monospacedDigit()
-                    }
-                    .font(.callout)
+                    factRow(bucket.label, bucket.count.formatted())
                 }
             } header: {
                 Text("Disclosure lag")
@@ -116,6 +144,30 @@ struct DataQualityView: View {
         .gazetteChrome()
         .navigationTitle("About this data")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// A label and a value on one row, reading as a single "label, value" element. Stacks
+    /// vertically at the accessibility text sizes so neither side clips.
+    private func factRow(_ label: String, _ value: String) -> some View {
+        let content = Group {
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label).foregroundStyle(.secondary)
+                    Text(value).monospacedDigit()
+                }
+            } else {
+                HStack {
+                    Text(label).foregroundStyle(.secondary)
+                    Spacer()
+                    Text(value).monospacedDigit()
+                }
+            }
+        }
+        return content
+            .font(.callout)
+            .listRowBackground(Ink.card)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(label), \(value)")
     }
 
     private func statRow(_ value: String, _ caption: String) -> some View {

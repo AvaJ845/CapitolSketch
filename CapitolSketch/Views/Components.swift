@@ -194,6 +194,59 @@ struct StatStrip: View {
     }
 }
 
+/// Honest note for a list that is showing only the first `shown` of `total` rows, so the
+/// rest are known to exist rather than silently dropped. Matches the feed masthead's
+/// phrasing. Renders nothing when the whole list fits.
+struct TruncationNote: View {
+    let shown: Int
+    let total: Int
+
+    var body: some View {
+        if total > shown {
+            Text("Showing \(shown.formatted()) of \(total.formatted())")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Showing \(shown) of \(total) rows")
+        }
+    }
+}
+
+/// A followed member as a chip, for the Watchlist "Members you follow" strip. A person
+/// glyph and the member's name in the regular text face — not the monospaced ticker
+/// face `TickerChip` uses — with an accessible label and room to truncate a long name.
+struct MemberChip: View {
+    let name: String
+    var filingCount: Int?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "person.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            if let filingCount {
+                Text("\(filingCount)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Ink.chipFill, in: Capsule())
+        .overlay(Capsule().strokeBorder(Ink.chipStroke, lineWidth: 0.75))
+        .frame(maxWidth: 240, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            filingCount.map {
+                "\(name), \($0) disclosed transaction\($0 == 1 ? "" : "s"). Followed."
+            } ?? "\(name). Followed."
+        )
+    }
+}
+
 /// Horizontal ticker pills used on Watchlist and member pages.
 struct TickerChip: View {
     let ticker: String
