@@ -57,26 +57,31 @@ struct Provider: TimelineProvider {
 
     private func currentEntry() -> DisclosureEntry {
         let feed = loadFeed()
+        let defaults = SharedContainer.defaults
         let tickers = Set(
-            SharedContainer.defaults.stringArray(forKey: SharedContainer.Key.tickers) ?? []
+            (defaults.stringArray(forKey: SharedContainer.Key.tickers) ?? []).map { $0.uppercased() }
         )
+        // A device-local trigger, read only to pick which already-downloaded rows to
+        // show. Nothing here or in `refreshFromClerk` varies a request by it.
+        let followed = Set(
+            defaults.stringArray(forKey: SharedContainer.Key.followedMembers) ?? []
+        )
+        let watchlistEmpty = tickers.isEmpty && followed.isEmpty
         let rows: [Trade]
-        if tickers.isEmpty {
+        if watchlistEmpty {
             rows = Array(feed.trades.prefix(5))
         } else {
-            rows = feed.trades.filter { trade in
-                guard let symbol = trade.ticker?.uppercased() else { return false }
-                return tickers.contains(symbol)
-            }
-            .prefix(5)
-            .map { $0 }
+            rows = feed.trades
+                .filter { $0.isWatchlistRelevant(watchedTickers: tickers, followedMembers: followed) }
+                .prefix(5)
+                .map { $0 }
         }
         let generated = feed.generatedAt == .distantPast ? nil : feed.generatedAt
         return DisclosureEntry(
             date: Date(),
             trades: rows,
             generatedAt: generated,
-            watchlistEmpty: tickers.isEmpty
+            watchlistEmpty: watchlistEmpty
         )
     }
 

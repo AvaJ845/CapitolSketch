@@ -223,6 +223,11 @@ struct RootView: View {
         guard ProcessInfo.processInfo.arguments.contains("-seed-watchlist"),
               watchlist.isEmpty else { return }
         for ticker in ["NVDA", "AAPL", "MSFT", "BE"] { watchlist.add(ticker) }
+        // Follow one well-known member so the Watchlist screenshot shows both halves.
+        if let member = store.members.first(where: { $0.name == "Nancy Pelosi" })
+            ?? store.members.first {
+            watchlist.follow(member.id)
+        }
         watchlist.markAllSeen(in: store.trades)
     }
 

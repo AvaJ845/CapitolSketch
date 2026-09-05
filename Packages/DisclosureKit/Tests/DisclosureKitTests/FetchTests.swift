@@ -252,17 +252,24 @@ struct FetchTests {
             return StubURLProtocol.recordedURLs
         }
 
-        // Baseline: nothing in the watchlist.
+        // Baseline: nothing in the watchlist, nobody followed.
         UserDefaults.standard.removeObject(forKey: "watchlistTickers")
+        UserDefaults.standard.removeObject(forKey: "followedMembers")
         let withoutWatchlist = await capture()
         #expect(withoutWatchlist == expected)
 
-        // A fully-populated watchlist in ambient storage must change nothing.
+        // A fully-populated watchlist AND a populated followed-members list in ambient
+        // storage must change nothing — neither is a parameter of the refresh, and the
+        // refresher reads no `UserDefaults`.
         UserDefaults.standard.set(
             ["AAPL", "TSLA", "NVDA", "MSFT", "SEED", "GOOG"], forKey: "watchlistTickers"
         )
+        UserDefaults.standard.set(
+            ["P000197", "x-seed", "S000510", "R000619"], forKey: "followedMembers"
+        )
         let withWatchlist = await capture()
         UserDefaults.standard.removeObject(forKey: "watchlistTickers")
+        UserDefaults.standard.removeObject(forKey: "followedMembers")
 
         #expect(withWatchlist == withoutWatchlist)
         #expect(withWatchlist == expected)

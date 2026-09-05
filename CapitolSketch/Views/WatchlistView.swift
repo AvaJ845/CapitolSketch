@@ -10,8 +10,14 @@ struct WatchlistView: View {
     @State private var newMatches: [Trade] = []
 
     private var matches: [Trade] {
-        store.trades(matching: watchlist.tickers)
+        store.trades(matching: watchlist.tickers, followedBy: watchlist.followedMemberIDs)
             .sorted { $0.disclosedDate > $1.disclosedDate }
+    }
+
+    private var followedMembers: [Member] {
+        watchlist.sortedFollowedMemberIDs
+            .compactMap { store.member(id: $0) }
+            .sorted { $0.name < $1.name }
     }
 
     var body: some View {
@@ -27,11 +33,22 @@ struct WatchlistView: View {
                     )
                 } else {
                     List {
-                        Section {
-                            tickerChips
-                                .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
+                        if !watchlist.tickers.isEmpty {
+                            Section {
+                                tickerChips
+                                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            }
+                        }
+
+                        if !followedMembers.isEmpty {
+                            Section("Members you follow") {
+                                followedMemberChips
+                                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            }
                         }
 
                         if !newMatches.isEmpty {
@@ -45,7 +62,7 @@ struct WatchlistView: View {
 
                         Section("\(matches.count.formatted()) disclosed trades") {
                             if matches.isEmpty {
-                                Text("No House member has disclosed a trade in these tickers.")
+                                Text("Nothing disclosed yet for the tickers you watch or the members you follow.")
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                                     .listRowBackground(Ink.card)
@@ -70,6 +87,7 @@ struct WatchlistView: View {
             }
             .navigationTitle("Watchlist")
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+            .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showingAdd = true } label: { Image(systemName: "plus") }
@@ -81,6 +99,7 @@ struct WatchlistView: View {
             }
             .task { gatherNewMatches(firstLoad: true) }
             .onChange(of: watchlist.tickers) { gatherNewMatches(firstLoad: false) }
+            .onChange(of: watchlist.followedMemberIDs) { gatherNewMatches(firstLoad: false) }
         }
     }
 
@@ -99,6 +118,30 @@ struct WatchlistView: View {
                             watchlist.remove(ticker)
                         } label: {
                             Label("Remove \(ticker)", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private var followedMemberChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(followedMembers) { member in
+                    NavigationLink(value: member) {
+                        TickerChip(
+                            ticker: member.name,
+                            count: store.trades(forMember: member.id).count
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            watchlist.unfollow(member.id)
+                        } label: {
+                            Label("Unfollow \(member.name)", systemImage: "bell.slash")
                         }
                     }
                 }

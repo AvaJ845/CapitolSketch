@@ -213,17 +213,17 @@ final class TradeStore {
             .sorted { $0.count == $1.count ? $0.ticker < $1.ticker : $0.count > $1.count }
     }
 
-    /// Filings touching any watched ticker.
+    /// Filings touching any watched ticker or any followed member.
     ///
     /// This is navigation, not personalisation: each row is the same public record every
     /// other reader sees, shown in full. Nothing here rewrites, ranks or annotates a
-    /// filing according to what the reader happens to hold.
-    func trades(matching watchlist: Set<String>) -> [Trade] {
-        guard !watchlist.isEmpty else { return [] }
+    /// filing according to what the reader happens to hold. The relevance test itself
+    /// lives in one place — `Trade.isWatchlistRelevant`.
+    func trades(matching watchlist: Set<String>, followedBy followed: Set<String> = []) -> [Trade] {
+        guard !watchlist.isEmpty || !followed.isEmpty else { return [] }
         let upper = Set(watchlist.map { $0.uppercased() })
-        return trades.filter { t in
-            guard let s = t.ticker?.uppercased() else { return false }
-            return upper.contains(s)
+        return trades.filter {
+            $0.isWatchlistRelevant(watchedTickers: upper, followedMembers: followed)
         }
     }
 
