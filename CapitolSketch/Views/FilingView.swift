@@ -21,6 +21,22 @@ struct FilingView: View {
     private var lead: Trade? { rows.first }
     private var member: Member? { lead.flatMap { store.member(id: $0.memberID) } }
 
+    /// Distinct parser caveats across every row in the filing, plus a note when any row
+    /// carries an impossible date — so the whole-filing view is as honest as the per-row
+    /// one about what the parser was unsure of.
+    private var filingWarnings: [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for row in rows {
+            for w in row.warnings where seen.insert(w).inserted { out.append(w) }
+        }
+        if rows.contains(where: \.hasImpossibleDate),
+           seen.insert("impossible-date").inserted {
+            out.append("One or more transactions are dated after this filing — shown as filed, not corrected.")
+        }
+        return out
+    }
+
     var body: some View {
         List {
             if let lead {
@@ -78,6 +94,23 @@ struct FilingView: View {
                         Text("Every field below is transcribed from the source PDF — US House "
                              + "Clerk, filing \(filingID), public domain. Check anything that "
                              + "matters against it.")
+                    }
+                }
+
+                if !filingWarnings.isEmpty {
+                    Section {
+                        ForEach(filingWarnings, id: \.self) { warning in
+                            Label(warning, systemImage: "info.circle")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .listRowBackground(Ink.card)
+                                .accessibilityElement(children: .combine)
+                        }
+                    } header: {
+                        Text("What the parser was unsure about")
+                    } footer: {
+                        Text("Carried through from parsing rather than discarded, so you can "
+                             + "check it against the original.")
                     }
                 }
 

@@ -34,6 +34,27 @@ struct AddTickerToWatchlistIntent: AppIntent {
     }
 }
 
+struct FollowMemberIntent: AppIntent {
+    static let title: LocalizedStringResource = "Follow a Member"
+    static let description = IntentDescription(
+        "Follows a House member, matched by name against the loaded filings, so a new disclosure from them alerts you. The list never leaves this phone."
+    )
+    /// Pure local write — no need to bring the app forward.
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Member name", requestValueDialog: "Which House member?")
+    var name: String
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let resolved = SharedContainer.followMember(matching: name) else {
+            throw $name.needsValueError("I couldn't match that to a House member in the loaded filings.")
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result(dialog: "Following \(resolved). Alerts stay on this phone.")
+    }
+}
+
 struct OpenWatchlistIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Watchlist"
     static let description = IntentDescription("Opens the Watchlist tab.")
@@ -90,6 +111,15 @@ struct CapitolSketchShortcuts: AppShortcutsProvider {
                 "Add a ticker to my \(.applicationName) watchlist",
             ],
             shortTitle: "Add Ticker",
+            systemImageName: "bell.badge"
+        )
+        AppShortcut(
+            intent: FollowMemberIntent(),
+            phrases: [
+                "Follow a member in \(.applicationName)",
+                "Follow a House member with \(.applicationName)",
+            ],
+            shortTitle: "Follow Member",
             systemImageName: "bell.badge"
         )
         AppShortcut(
