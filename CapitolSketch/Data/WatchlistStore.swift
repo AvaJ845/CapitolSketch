@@ -100,7 +100,7 @@ final class WatchlistStore {
 
     /// Longest symbol the feed can hold is the parser's `[A-Z][A-Z0-9.\-]{0,6}`, so
     /// anything past a small margin is a paste accident, not a ticker.
-    static let maxTickerLength = 12
+    static let maxTickerLength = SharedContainer.maxTickerLength
 
     func add(_ ticker: String) {
         let t = Self.normalize(ticker)
@@ -124,7 +124,7 @@ final class WatchlistStore {
     }
 
     private static func normalize(_ ticker: String) -> String {
-        ticker.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        SharedContainer.normalizedTicker(ticker)
     }
 
     /// Watchlist matches that have not been surfaced yet, most recently disclosed first.
