@@ -58,6 +58,7 @@ struct MembersView: View {
             .searchable(text: $query, prompt: "Name or state")
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+            .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
         }
     }
 }

@@ -95,6 +95,8 @@ struct FeedView: View {
             .navigationTitle("Disclosures")
             .searchable(text: $filter.search, prompt: "Member, ticker, or company")
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+            .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
+            .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
             .refreshable { await store.refresh(force: true) }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
