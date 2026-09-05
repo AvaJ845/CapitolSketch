@@ -6,20 +6,29 @@ struct TradeFilter: Equatable {
     var search = ""
     var types: Set<TradeType> = []
     var owners: Set<TradeOwner> = []
+    /// Two-letter state codes of the members whose filings to show. Navigation over data
+    /// already in the feed — the state comes from `Member`, resolved by the caller.
+    var states: Set<String> = []
     var optionsOnly = false
     var lateOnly = false
 
-    var isActive: Bool { !types.isEmpty || !owners.isEmpty || optionsOnly || lateOnly }
-
-    var activeCount: Int {
-        types.count + owners.count + (optionsOnly ? 1 : 0) + (lateOnly ? 1 : 0)
+    var isActive: Bool {
+        !types.isEmpty || !owners.isEmpty || !states.isEmpty || optionsOnly || lateOnly
     }
 
-    func apply(to trades: [Trade]) -> [Trade] {
+    var activeCount: Int {
+        types.count + owners.count + states.count + (optionsOnly ? 1 : 0) + (lateOnly ? 1 : 0)
+    }
+
+    /// - Parameter stateOf: maps a member ID to their two-letter state code.
+    func apply(to trades: [Trade], stateOf: (String) -> String?) -> [Trade] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
         return trades.filter { t in
             if !types.isEmpty && !types.contains(t.txType) { return false }
             if !owners.isEmpty && !owners.contains(t.owner) { return false }
+            if !states.isEmpty {
+                guard let s = stateOf(t.memberID), states.contains(s) else { return false }
+            }
             if optionsOnly && !t.isOption { return false }
             if lateOnly && !t.isLateFiling { return false }
             if !q.isEmpty {
@@ -41,7 +50,14 @@ struct FeedView: View {
     @State private var filter = TradeFilter()
     @State private var showingFilters = false
 
-    private var results: [Trade] { filter.apply(to: store.trades) }
+    private var results: [Trade] {
+        filter.apply(to: store.trades) { store.member(id: $0)?.state }
+    }
+
+    /// Distinct member states present in the feed, for the filter sheet.
+    private var availableStates: [String] {
+        Set(store.members.map(\.state)).sorted()
+    }
 
     var body: some View {
         NavigationStack {
@@ -111,7 +127,7 @@ struct FeedView: View {
                 }
             }
             .sheet(isPresented: $showingFilters) {
-                FilterSheet(filter: $filter)
+                FilterSheet(filter: $filter, availableStates: availableStates)
                     .presentationDetents([.medium, .large])
                     .tint(Ink.accent)
             }
@@ -158,6 +174,7 @@ private struct FilterToolbarLabel: View {
 
 private struct FilterSheet: View {
     @Binding var filter: TradeFilter
+    var availableStates: [String] = []
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -175,6 +192,16 @@ private struct FilterSheet: View {
                     ForEach(TradeOwner.allCases, id: \.self) { owner in
                         toggleRow(owner.label, isOn: filter.owners.contains(owner)) {
                             toggle(owner, in: &filter.owners)
+                        }
+                    }
+                }
+
+                if !availableStates.isEmpty {
+                    Section("State") {
+                        ForEach(availableStates, id: \.self) { state in
+                            toggleRow(state, isOn: filter.states.contains(state)) {
+                                toggle(state, in: &filter.states)
+                            }
                         }
                     }
                 }
