@@ -125,6 +125,12 @@ struct AboutView: View {
                     if let error = store.lastError {
                         Text(error).font(.caption).foregroundStyle(Ink.lag)
                     }
+
+                    NavigationLink {
+                        DataQualityView()
+                    } label: {
+                        Label("About this data", systemImage: "list.bullet.rectangle.portrait")
+                    }
                 }
                 .listRowBackground(Ink.card)
 
