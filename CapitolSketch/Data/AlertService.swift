@@ -52,10 +52,16 @@ enum AlertService {
             content.userInfo = ["rowID": only.id]
             identifier = "watchlist-\(only.id)"
         } else {
-            let symbols = Set(trades.compactMap(\.ticker)).sorted()
             content.title = "\(trades.count) new disclosures on your watchlist"
-            content.body = symbols.prefix(4).joined(separator: ", ")
-                + (symbols.count > 4 ? " and \(symbols.count - 4) more" : "")
+            // Name the tickers the reader supplied; fall back to the members they follow
+            // when a hit came from a follow and carries no ticker. Either way, no
+            // commentary — nothing a reader could mistake for a recommendation.
+            let symbols = Set(trades.compactMap(\.ticker)).sorted()
+            let labels = symbols.isEmpty
+                ? Set(trades.map(\.memberName)).sorted()
+                : symbols
+            content.body = labels.prefix(4).joined(separator: ", ")
+                + (labels.count > 4 ? " and \(labels.count - 4) more" : "")
             identifier = "watchlist-digest"
         }
 

@@ -21,6 +21,9 @@ final class WatchlistStore {
     private let defaults: UserDefaults
 
     private(set) var tickers: Set<String> = []
+    /// Member IDs the reader follows for filing alerts. Same device-local contract as
+    /// `tickers` — never transmitted, and no request varies with it.
+    private(set) var followedMemberIDs: Set<String> = []
     private(set) var seenRowIDs: Set<String> = []
 
     /// The identifier scheme the current build writes. Bumped when `Trade.id` changed
@@ -39,6 +42,7 @@ final class WatchlistStore {
     init(defaults: UserDefaults = SharedContainer.defaults) {
         self.defaults = defaults
         tickers = Set(defaults.stringArray(forKey: SharedContainer.Key.tickers) ?? [])
+        followedMemberIDs = Set(defaults.stringArray(forKey: SharedContainer.Key.followedMembers) ?? [])
         seenRowIDs = Set(defaults.stringArray(forKey: SharedContainer.Key.seenRowIDs) ?? [])
         notificationsEnabled = defaults.bool(forKey: SharedContainer.Key.notifyEnabled)
 
@@ -63,11 +67,35 @@ final class WatchlistStore {
     }
 
     var sortedTickers: [String] { tickers.sorted() }
-    var isEmpty: Bool { tickers.isEmpty }
+    var sortedFollowedMemberIDs: [String] { followedMemberIDs.sorted() }
+    /// The Watchlist tab is empty only when the reader watches no ticker *and* follows
+    /// no member.
+    var isEmpty: Bool { tickers.isEmpty && followedMemberIDs.isEmpty }
     var count: Int { tickers.count }
 
     func contains(_ ticker: String) -> Bool {
         tickers.contains(Self.normalize(ticker))
+    }
+
+    // MARK: - Followed members
+
+    func isFollowing(_ memberID: String) -> Bool {
+        followedMemberIDs.contains(memberID)
+    }
+
+    func follow(_ memberID: String) {
+        guard !memberID.isEmpty else { return }
+        followedMemberIDs.insert(memberID)
+        persistFollowed()
+    }
+
+    func unfollow(_ memberID: String) {
+        followedMemberIDs.remove(memberID)
+        persistFollowed()
+    }
+
+    func toggleFollow(_ memberID: String) {
+        isFollowing(memberID) ? unfollow(memberID) : follow(memberID)
     }
 
     /// Longest symbol the feed can hold is the parser's `[A-Z][A-Z0-9.\-]{0,6}`, so
@@ -104,10 +132,12 @@ final class WatchlistStore {
     /// This chooses *when to notify*. It does not choose what the reader then sees: the
     /// rows handed back are whole, unmodified public records.
     func unseenMatches(in trades: [Trade]) -> [Trade] {
-        guard !tickers.isEmpty else { return [] }
+        guard !tickers.isEmpty || !followedMemberIDs.isEmpty else { return [] }
         return trades
             .filter { trade in
-                guard let s = trade.ticker?.uppercased(), tickers.contains(s) else { return false }
+                guard trade.isWatchlistRelevant(
+                    watchedTickers: tickers, followedMembers: followedMemberIDs
+                ) else { return false }
                 return !seenRowIDs.contains(trade.id)
             }
             .sorted { $0.disclosedDate > $1.disclosedDate }
@@ -128,6 +158,10 @@ final class WatchlistStore {
 
     private func persistTickers() {
         defaults.set(tickers.sorted(), forKey: SharedContainer.Key.tickers)
+    }
+
+    private func persistFollowed() {
+        defaults.set(followedMemberIDs.sorted(), forKey: SharedContainer.Key.followedMembers)
     }
 
     private func persistSeen() {

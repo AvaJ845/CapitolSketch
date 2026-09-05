@@ -65,6 +65,7 @@ struct MembersView: View {
 struct MemberDetailView: View {
     let member: Member
     @Environment(TradeStore.self) private var store
+    @Environment(WatchlistStore.self) private var watchlist
 
     private var trades: [Trade] {
         store.trades(forMember: member.id).sorted { $0.sortDate > $1.sortDate }
@@ -118,6 +119,29 @@ struct MemberDetailView: View {
                     .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
                     .listRowBackground(Color.clear)
                 }
+            }
+
+            Section {
+                Button {
+                    let wasEmpty = watchlist.isEmpty
+                    watchlist.toggleFollow(member.id)
+                    // First follow (or first ticker): treat everything already public as
+                    // seen, so the reader is not buried in a backlog of alerts.
+                    if wasEmpty, watchlist.isFollowing(member.id) {
+                        watchlist.markAllSeen(in: store.trades)
+                    }
+                } label: {
+                    Label(
+                        watchlist.isFollowing(member.id)
+                            ? "Following \(member.name)"
+                            : "Follow \(member.name)",
+                        systemImage: watchlist.isFollowing(member.id) ? "bell.fill" : "bell"
+                    )
+                }
+                .listRowBackground(Ink.card)
+            } footer: {
+                Text("Following a member only decides when you get a notification. "
+                     + "It stays on this phone.")
             }
 
             Section("Disclosed transactions") {

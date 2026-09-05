@@ -11,6 +11,12 @@ enum SharedContainer {
 
     enum Key {
         static let tickers = "watchlistTickers"
+        /// Bioguide-or-slug member IDs the reader has chosen to follow for filing
+        /// alerts. Like `tickers`, this never leaves the device: it is not sent as a
+        /// set, a hash, a count or one item, and no network request varies with it.
+        /// Stored as a sorted `[String]`, read only by post-download code
+        /// (`WatchlistStore`, the alert scan, the widget entry builder).
+        static let followedMembers = "followedMembers"
         static let seenRowIDs = "seenRowIDs"
         static let notifyEnabled = "notificationsEnabled"
         static let appearance = "appearance"
