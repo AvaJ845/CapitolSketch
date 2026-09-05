@@ -124,13 +124,9 @@ struct MemberDetailView: View {
 
             Section {
                 Button {
-                    let wasEmpty = watchlist.isEmpty
-                    watchlist.toggleFollow(member.id)
-                    // First follow (or first ticker): treat everything already public as
-                    // seen, so the reader is not buried in a backlog of alerts.
-                    if wasEmpty, watchlist.isFollowing(member.id) {
-                        watchlist.markAllSeen(in: store.trades)
-                    }
+                    // First watch or follow: treat everything already public as seen, so
+                    // the reader is not buried in a backlog of alerts.
+                    watchlist.toggleFollow(member.id, markingSeenIn: store.trades)
                 } label: {
                     Label(
                         watchlist.isFollowing(member.id)
@@ -145,13 +141,24 @@ struct MemberDetailView: View {
                      + "It stays on this phone.")
             }
 
-            Section("Disclosed transactions") {
-                ForEach(trades.prefix(300)) { trade in
-                    NavigationLink(value: trade) {
-                        DisclosureRow(trade: trade, showsMember: false)
+            Section {
+                if trades.isEmpty {
+                    Text("No disclosed transaction for this member in the loaded filings.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .listRowBackground(Ink.card)
+                } else {
+                    ForEach(trades.prefix(300)) { trade in
+                        NavigationLink(value: trade) {
+                            DisclosureRow(trade: trade, showsMember: false)
+                        }
+                        .disclosureRowChrome()
                     }
-                    .disclosureRowChrome()
                 }
+            } header: {
+                Text("Disclosed transactions")
+            } footer: {
+                TruncationNote(shown: 300, total: trades.count)
             }
         }
         .listStyle(.insetGrouped)
