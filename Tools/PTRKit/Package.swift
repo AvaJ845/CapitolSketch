@@ -18,7 +18,8 @@ let package = Package(
         .target(
             name: "PTRKit",
             dependencies: [.product(name: "DisclosureKit", package: "DisclosureKit")],
-            path: "Sources/PTRKit"
+            path: "Sources/PTRKit",
+            swiftSettings: [.define("SEEDGEN")]
         ),
         .executableTarget(
             name: "seedgen",
@@ -26,7 +27,12 @@ let package = Package(
                 "PTRKit",
                 .product(name: "DisclosureKit", package: "DisclosureKit"),
             ],
-            path: "Sources/seedgen"
+            path: "Sources/seedgen",
+            // seedgen reaches the Senate ingestion path (`--senate`). DisclosureKit's
+            // own `.define("SEEDGEN", .when(platforms: [.macOS]))` is what compiles the
+            // Senate types into the library this links against; this define keeps
+            // seedgen's and PTRKit's own sources on the same footing.
+            swiftSettings: [.define("SEEDGEN")]
         ),
     ]
 )

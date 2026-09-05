@@ -1,3 +1,8 @@
+// Senate eFD portal scraping. The shipping app is House-only and no app or widget code
+// path reaches any type in this file; it is compiled only for `seedgen` and the
+// DisclosureKit test target, both of which define SEEDGEN. See P0-2 in the security
+// review and `Package.swift`.
+#if SEEDGEN
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -210,3 +215,4 @@ public enum SenateFilingIndex {
         return String(text[range])
     }
 }
+#endif // SEEDGEN

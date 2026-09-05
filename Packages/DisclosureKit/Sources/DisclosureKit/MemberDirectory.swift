@@ -131,6 +131,10 @@ public struct MemberDirectory: Sendable {
     /// national surname+forename collisions are rare (the Scotts differ by forename), so
     /// this answers whenever the chamber narrows to exactly one person and reports
     /// ambiguity otherwise rather than guessing.
+    ///
+    /// Senate-only: the sole caller is `SenateFetcher`, so it is compiled only where
+    /// SEEDGEN is defined (`seedgen` and the DisclosureKit test target). See P0-2.
+    #if SEEDGEN
     public func resolve(last: String, first: String, chamber: Chamber) -> Resolution {
         let nLast = Self.normalize(last)
         let nFirst = Self.normalize(first).components(separatedBy: " ").first ?? ""
@@ -152,6 +156,7 @@ public struct MemberDirectory: Sendable {
         if byForename.count > 1 { return .ambiguous(Self.ids(byForename)) }
         return bySurname.isEmpty ? .notFound : .ambiguous(Self.ids(bySurname))
     }
+    #endif // SEEDGEN
 
     /// The single person these candidates describe, if there is one. A group that is all
     /// the same human — the same member indexed under several terms — counts as one.

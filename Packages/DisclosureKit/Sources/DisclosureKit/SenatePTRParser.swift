@@ -1,3 +1,8 @@
+// Senate eFD portal scraping / parsing. The shipping app is House-only and no app or
+// widget code path reaches SenateFilingRef or SenatePTRParser; this file is compiled
+// only for `seedgen` and the DisclosureKit test target, both of which define SEEDGEN.
+// See P0-2 in the security review and `Package.swift`.
+#if SEEDGEN
 import Foundation
 
 /// Identifies a Senate Periodic Transaction Report from efdsearch.senate.gov.
@@ -227,3 +232,4 @@ public enum SenatePTRParser {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+#endif // SEEDGEN
