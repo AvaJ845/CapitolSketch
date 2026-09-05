@@ -31,11 +31,26 @@ public enum IncrementalRefresher {
         /// True when more new filings exist than this run was willing to fetch.
         public var moreRemaining = false
 
+        /// True when at least one requested index year came back a clean HTTP 200 or a
+        /// legitimate 304. Callers persist a "last reached the Clerk" timestamp only
+        /// when this is true — never on an error, an over-cap body, or an offline run.
+        public var reachedClerk = false
+        /// True when the Clerk answered but with something we would not accept — a
+        /// non-2xx status, an over-cap body, or undecodable bytes. Distinct from a
+        /// plain offline run, and worth saying so: it can mean an outage or an attacker
+        /// forcing a bad response to freeze the index behind the normal disclosure lag.
+        public var clerkReturnedUnexpected = false
+
         /// Plain-language summary. The app never claims to be current without saying
         /// what "current" cost, so this is written to be shown, not just logged.
         public var summary: String {
-            if !failures.isEmpty && addedTrades == 0 {
-                return "Couldn't reach the Clerk. Showing the filings already downloaded."
+            if addedTrades == 0 {
+                if clerkReturnedUnexpected {
+                    return "The Clerk returned an unexpected response; showing the last data downloaded."
+                }
+                if !reachedClerk && (!failures.isEmpty || indexedFilings == 0) {
+                    return "Couldn't reach the House Clerk. Showing the filings already downloaded."
+                }
             }
             if newFilings == 0 { return "No new filings since the last check." }
             if addedTrades == 0 {
@@ -84,10 +99,23 @@ public enum IncrementalRefresher {
         var indexed: [FilingIndexRow] = []
         for year in years {
             do {
-                indexed += try await FilingIndex.fetch(
+                let (rows, contact) = try await FilingIndex.fetchWithContact(
                     year: year, cacheDirectory: cacheDirectory, session: session
-                ).filter(\.isPeriodicTransactionReport)
+                )
+                indexed += rows.filter(\.isPeriodicTransactionReport)
+                if contact.reachedClerk { report.reachedClerk = true }
+                if case let .servedFromCache(reason) = contact, reason.isUnexpectedResponse {
+                    report.clerkReturnedUnexpected = true
+                    report.failures.append("index \(year): the Clerk returned an unexpected response")
+                }
             } catch {
+                if case let FilingIndex.IndexError.badStatus(code, _) = error, code != -1 {
+                    report.clerkReturnedUnexpected = true
+                } else if case FilingIndex.IndexError.tooLarge = error {
+                    report.clerkReturnedUnexpected = true
+                } else if case FilingIndex.IndexError.undecodable = error {
+                    report.clerkReturnedUnexpected = true
+                }
                 report.failures.append("index \(year): \(error.localizedDescription)")
             }
         }

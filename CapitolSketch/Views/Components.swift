@@ -96,6 +96,35 @@ struct DataAgeLine: View {
     }
 }
 
+/// Refresh liveness, shown only when the app hasn't reached the House Clerk in over a
+/// week. Deliberately calm — this is a data-quality note, not an alarm: `.caption2`
+/// secondary text with a thin `Ink.lag` rule and no fill, so it reads as "here is a
+/// caveat" rather than "something is broken".
+struct StaleContactNote: View {
+    let lastContact: Date?
+
+    private var message: String {
+        if let lastContact {
+            let when = lastContact.formatted(.dateTime.month(.abbreviated).day())
+            return "Haven't reached the House Clerk since \(when) — showing the last data downloaded."
+        }
+        return "Haven't reached the House Clerk yet — showing the data this version shipped with."
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Ink.lag
+                .frame(width: 2)
+            Text(message)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Initials in a navy disc. Used on the members list so rows have a face without photos.
 struct MonogramView: View {
     let name: String

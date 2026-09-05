@@ -95,6 +95,18 @@ struct AboutView: View {
                             ? "—"
                             : store.feed.generatedAt.formatted(date: .abbreviated, time: .shortened))
 
+                    labeled("Last reached the Clerk",
+                            store.lastClerkContact.map {
+                                $0.formatted(date: .abbreviated, time: .shortened)
+                            } ?? "—")
+
+                    if store.clerkContactIsStale {
+                        Text("Haven't reached the House Clerk in over a week — the list above is "
+                             + "the last data downloaded, not necessarily the newest on file.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Button {
                         Task { await store.refresh(force: true) }
                     } label: {
