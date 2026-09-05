@@ -268,3 +268,133 @@ struct FetchTests {
         #expect(withWatchlist == expected)
     }
 }
+
+// P0-3: refresh liveness is reported separately from data age. `reachedClerk` is the
+// seam the app and widget use to stamp "last reached the Clerk"; it must be true only
+// on a genuine good exchange, and a suspicious response must be distinguishable from a
+// plain offline run. Kept in the same `.serialized` suite as the fetch tests because
+// they share `StubURLProtocol`'s global state.
+extension FetchTests {
+
+    static func runRefresh(
+        handler: @escaping StubURLProtocol.Handler,
+        seedFilingID: String = "40000001",
+        cacheDirectory: URL? = nil
+    ) async -> IncrementalRefresher.Report {
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = handler
+        let outcome = await IncrementalRefresher.refresh(
+            seed: seed(filingID: seedFilingID),
+            years: [2026],
+            concurrency: 1,
+            cacheDirectory: cacheDirectory,
+            session: StubURLProtocol.makeSession()
+        )
+        return outcome.report
+    }
+
+    static var freshIndex: String { indexText(year: 2026, docIDs: ["40000001", "40000002"]) }
+
+    @Test("A 200 on the index counts as reaching the Clerk")
+    func healthyRefreshReachesClerk() async {
+        let report = await Self.runRefresh {  request in
+            let url = request.url!
+            if url.path.hasSuffix("2026FD.txt") {
+                return (StubURLProtocol.ok(for: request), Data(Self.freshIndex.utf8))
+            }
+            return (StubURLProtocol.response(for: request, status: 404), Data())
+        }
+        #expect(report.reachedClerk)
+        #expect(!report.clerkReturnedUnexpected)
+    }
+
+    @Test("A legitimate 304 counts as reaching the Clerk")
+    func notModifiedReachesClerk() async throws {
+        let cache = FetchTests.tempDir()
+        defer { try? FileManager.default.removeItem(at: cache) }
+        try FetchTests.indexText(year: 2026, docIDs: ["40000001"])
+            .write(to: cache.appendingPathComponent("2026FD.txt"), atomically: true, encoding: .utf8)
+        try "\"v1\"".write(to: cache.appendingPathComponent("2026FD.etag"),
+                           atomically: true, encoding: .utf8)
+
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { request in
+            (StubURLProtocol.response(for: request, status: 304), Data())
+        }
+        let (_, contact) = try await FilingIndex.fetchWithContact(
+            year: 2026, cacheDirectory: cache, session: StubURLProtocol.makeSession()
+        )
+        #expect(contact == .notModified)
+        #expect(contact.reachedClerk)
+
+        // And through a full refresh.
+        let report = await Self.runRefresh(
+            handler: { request in (StubURLProtocol.response(for: request, status: 304), Data()) },
+            seedFilingID: "40000001",
+            cacheDirectory: cache
+        )
+        #expect(report.reachedClerk)
+        #expect(!report.clerkReturnedUnexpected)
+    }
+
+    @Test("An oversized index response is reached-but-unexpected, not offline")
+    func oversizedIndexIsUnexpected() async {
+        let report = await Self.runRefresh {  request in
+            (StubURLProtocol.ok(for: request), Data(count: FilingIndex.maxResponseBytes + 1))
+        }
+        #expect(!report.reachedClerk)
+        #expect(report.clerkReturnedUnexpected)
+        #expect(report.summary.contains("unexpected response"))
+    }
+
+    @Test("A 500 on the index is reached-but-unexpected, not offline")
+    func serverErrorIsUnexpected() async {
+        let report = await Self.runRefresh {  request in
+            (StubURLProtocol.response(for: request, status: 500), Data("nope".utf8))
+        }
+        #expect(!report.reachedClerk)
+        #expect(report.clerkReturnedUnexpected)
+        #expect(report.summary.contains("unexpected response"))
+    }
+
+    @Test("A transport failure is plain offline, not an unexpected response")
+    func offlineIsNotUnexpected() async {
+        let report = await Self.runRefresh {  _ in throw URLError(.notConnectedToInternet) }
+        #expect(!report.reachedClerk)
+        #expect(!report.clerkReturnedUnexpected)
+        #expect(report.summary.contains("Couldn't reach the House Clerk"))
+    }
+
+    @Test("fetchWithContact labels a 200 fresh and a cache fallback served-from-cache")
+    func contactLabels() async throws {
+        // 200
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { request in
+            (StubURLProtocol.ok(for: request), Data(FetchTests.indexText(year: 2026, docIDs: ["1"]).utf8))
+        }
+        let fresh = try await FilingIndex.fetchWithContact(
+            year: 2026, cacheDirectory: nil, session: StubURLProtocol.makeSession()
+        )
+        #expect(fresh.contact == .fresh)
+        #expect(fresh.contact.reachedClerk)
+
+        // 500 with a cache present -> served from cache, not reached
+        let cache = FetchTests.tempDir()
+        defer { try? FileManager.default.removeItem(at: cache) }
+        try FetchTests.indexText(year: 2026, docIDs: ["2"])
+            .write(to: cache.appendingPathComponent("2026FD.txt"), atomically: true, encoding: .utf8)
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { request in
+            (StubURLProtocol.response(for: request, status: 503), Data())
+        }
+        let stale = try await FilingIndex.fetchWithContact(
+            year: 2026, cacheDirectory: cache, session: StubURLProtocol.makeSession()
+        )
+        #expect(stale.contact == .servedFromCache(.badStatus(503)))
+        #expect(!stale.contact.reachedClerk)
+        #expect(stale.contact == .servedFromCache(.badStatus(503)))
+        if case .servedFromCache(let reason) = stale.contact {
+            #expect(reason.isUnexpectedResponse)
+        }
+    }
+}

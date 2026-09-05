@@ -128,6 +128,10 @@ struct FeedView: View {
                     .foregroundStyle(.secondary)
             }
             DataAgeLine(generatedAt: store.generatedAt)
+            if store.clerkContactIsStale {
+                StaleContactNote(lastContact: store.lastClerkContact)
+                    .padding(.top, 2)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

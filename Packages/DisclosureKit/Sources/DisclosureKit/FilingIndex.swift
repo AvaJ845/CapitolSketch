@@ -114,6 +114,43 @@ public enum FilingIndex {
         return rows
     }
 
+    /// How a `fetchWithContact` call actually reached the Clerk. Lets a caller tell
+    /// "the Clerk confirmed this data" apart from "the Clerk was unreachable, so this is
+    /// the last copy we hold" — a distinction the plain rows cannot carry, and the one
+    /// P0-3 surfaces so a silent freeze does not read as the normal disclosure lag.
+    public enum ClerkContact: Sendable, Equatable {
+        /// HTTP 200 — the Clerk served the file.
+        case fresh
+        /// HTTP 304 — the Clerk confirmed the on-disk copy is still current.
+        case notModified
+        /// The Clerk could not be reached, or returned something unexpected; the rows
+        /// came from the on-disk cache.
+        case servedFromCache(Reason)
+
+        public enum Reason: Sendable, Equatable {
+            /// Transport failure — offline, DNS, TLS, timeout.
+            case offline
+            /// A response arrived but was not a clean 2xx/304.
+            case badStatus(Int)
+            /// The body was larger than `maxResponseBytes`.
+            case tooLarge
+            /// The body was not valid UTF-8.
+            case undecodable
+
+            /// A response arrived from the host but was not something we would accept —
+            /// distinct from never reaching it at all.
+            public var isUnexpectedResponse: Bool { self != .offline }
+        }
+
+        /// True only for a genuine good exchange with the Clerk (200 or a legitimate 304).
+        public var reachedClerk: Bool {
+            switch self {
+            case .fresh, .notModified: return true
+            case .servedFromCache: return false
+            }
+        }
+    }
+
     /// Downloads the index for a year.
     ///
     /// The Clerk regenerates these files daily, so a cached copy is revalidated with the
@@ -125,9 +162,29 @@ public enum FilingIndex {
         cacheDirectory: URL?,
         session: URLSession = .shared
     ) async throws -> [FilingIndexRow] {
+        try await fetchWithContact(
+            year: year, cacheDirectory: cacheDirectory, session: session
+        ).rows
+    }
+
+    /// `fetch`, plus how the Clerk was actually reached. Falls back to the on-disk cache
+    /// on any error or unexpected response, exactly as `fetch` does; throws only when
+    /// there is no cache to fall back to.
+    public static func fetchWithContact(
+        year: Int,
+        cacheDirectory: URL?,
+        session: URLSession = .shared
+    ) async throws -> (rows: [FilingIndexRow], contact: ClerkContact) {
         let url = textURL(year: year)
         let cacheFile = cacheDirectory?.appendingPathComponent("\(year)FD.txt")
         let etagFile = cacheDirectory?.appendingPathComponent("\(year)FD.etag")
+
+        func cachedRows() -> [FilingIndexRow]? {
+            guard let cacheFile,
+                  let cached = try? String(contentsOf: cacheFile, encoding: .utf8)
+            else { return nil }
+            return parse(cached, fallbackYear: year)
+        }
 
         var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -141,21 +198,26 @@ public enum FilingIndex {
             let (data, response) = try await session.data(for: request)
             let http = response as? HTTPURLResponse
 
-            if http?.statusCode == 304, let cacheFile,
-               let cached = try? String(contentsOf: cacheFile, encoding: .utf8) {
-                return parse(cached, fallbackYear: year)
+            if http?.statusCode == 304 {
+                if let rows = cachedRows() { return (rows, .notModified) }
+                // A 304 with nothing on disk to confirm is a broken exchange, not contact.
+                throw IndexError.badStatus(304, year)
             }
             guard let http, (200..<300).contains(http.statusCode) else {
-                throw IndexError.badStatus(http?.statusCode ?? -1, year)
+                let code = http?.statusCode ?? -1
+                if let rows = cachedRows() { return (rows, .servedFromCache(.badStatus(code))) }
+                throw IndexError.badStatus(code, year)
             }
             // `URLSession.data` has already buffered the body, so this bounds what gets
             // decoded, parsed and cached — three more copies — rather than the socket
             // read itself. A transport-level bound would mean streaming, which is not
             // worth it against a TLS-authenticated government host.
             guard data.count <= maxResponseBytes else {
+                if let rows = cachedRows() { return (rows, .servedFromCache(.tooLarge)) }
                 throw IndexError.tooLarge(year, data.count)
             }
             guard let text = String(data: data, encoding: .utf8) else {
+                if let rows = cachedRows() { return (rows, .servedFromCache(.undecodable)) }
                 throw IndexError.undecodable(year)
             }
             if let cacheFile {
@@ -167,12 +229,12 @@ public enum FilingIndex {
                     try? tag.write(to: etagFile, atomically: true, encoding: .utf8)
                 }
             }
-            return parse(text, fallbackYear: year)
+            return (parse(text, fallbackYear: year), .fresh)
+        } catch let error as IndexError {
+            throw error
         } catch {
             // Offline: fall back to whatever is cached rather than failing outright.
-            if let cacheFile, let cached = try? String(contentsOf: cacheFile, encoding: .utf8) {
-                return parse(cached, fallbackYear: year)
-            }
+            if let rows = cachedRows() { return (rows, .servedFromCache(.offline)) }
             throw error
         }
     }

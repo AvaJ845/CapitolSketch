@@ -106,6 +106,11 @@ struct Provider: TimelineProvider {
             concurrency: 2,
             cacheDirectory: SharedContainer.directory
         )
+        // Liveness, tracked apart from data age: only a genuine good exchange with the
+        // Clerk (200 / legitimate 304) bumps this — never an error or an offline run.
+        if outcome.report.reachedClerk {
+            SharedContainer.noteClerkContact()
+        }
         guard let updated = outcome.feed else { return }
         let destination = SharedContainer.feedFile ?? SharedContainer.localFeedFile
         let (encoder, _) = TradeFeed.makeCoder()

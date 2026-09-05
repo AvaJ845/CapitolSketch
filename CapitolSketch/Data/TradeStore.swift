@@ -42,6 +42,22 @@ final class TradeStore {
         feed.generatedAt == .distantPast ? nil : feed.generatedAt
     }
 
+    /// When a refresh last genuinely reached the House Clerk (a 200 on the index or a
+    /// legitimate 304). Nil until the first successful contact. Surfaced separately from
+    /// `generatedAt` so a silent index freeze — an outage, or a forced bad response —
+    /// does not hide behind the normal 45-day disclosure lag.
+    private(set) var lastClerkContact: Date? = SharedContainer.lastClerkContact
+
+    /// True when the last successful Clerk contact is more than a week old, or there has
+    /// never been one and the data itself is over a week old. The masthead and Settings
+    /// say so, calmly, when this is true.
+    var clerkContactIsStale: Bool {
+        let cutoff = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        if let last = lastClerkContact { return last < cutoff }
+        if let generatedAt { return generatedAt < cutoff }
+        return false
+    }
+
     init() {}
 
     // MARK: - Loading
@@ -51,6 +67,8 @@ final class TradeStore {
     func start() async {
         await load()
         seedSharedContainerIfNeeded()
+        // The widget may have reached the Clerk since this process last ran.
+        lastClerkContact = SharedContainer.lastClerkContact
     }
 
     /// Loads the feed, preferring whichever copy was generated most recently — a refresh
@@ -138,6 +156,14 @@ final class TradeStore {
         lastRefreshSummary = outcome.report.summary
         if let first = outcome.report.failures.first, outcome.report.addedTrades == 0 {
             lastError = first
+        }
+
+        // Liveness is tracked apart from data age: stamp "last reached the Clerk" only
+        // on a genuine good exchange (200 / legitimate 304), never on an error, an
+        // offline run, or an over-cap response.
+        if outcome.report.reachedClerk {
+            SharedContainer.noteClerkContact()
+            lastClerkContact = SharedContainer.lastClerkContact
         }
 
         guard let updated = outcome.feed else { return }

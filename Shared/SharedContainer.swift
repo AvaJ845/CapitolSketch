@@ -23,6 +23,23 @@ enum SharedContainer {
         /// old scheme can never match the new feed, so it is rebased rather than left to
         /// re-surface every watched filing at once.
         static let rowIDScheme = "rowIDScheme"
+        /// The last time a refresh genuinely reached the House Clerk with a good
+        /// response (a 200 on the index, or a legitimate 304), as an ISO-8601 string.
+        /// Written by the app and the widget, and only on real contact — never on an
+        /// error, an offline run, or an over-cap response. Read to tell a silent index
+        /// freeze apart from the normal 45-day disclosure lag.
+        static let lastClerkContact = "lastClerkContact"
+    }
+
+    /// Records that a refresh reached the Clerk with a good response, now.
+    static func noteClerkContact(at date: Date = Date()) {
+        defaults.set(ISO8601DateFormatter().string(from: date), forKey: Key.lastClerkContact)
+    }
+
+    /// When a refresh last reached the Clerk with a good response, if ever.
+    static var lastClerkContact: Date? {
+        guard let raw = defaults.string(forKey: Key.lastClerkContact) else { return nil }
+        return ISO8601DateFormatter().date(from: raw)
     }
 
     /// App Group suite when the entitlement is honoured; otherwise the process defaults,
