@@ -79,6 +79,38 @@ enum SharedContainer {
         return t
     }
 
+    /// Follows a House member by name, matched against the members in the last-downloaded
+    /// feed (exact, then prefix, then substring, case-insensitive). Writes straight
+    /// through the App Group defaults so a headless App Shortcut and a not-running app
+    /// both see it. Returns the resolved member name, or `nil` if no match.
+    ///
+    /// Device-local write, same contract as `addTicker`: the follow list is never
+    /// transmitted and no fetch varies with it — see `WatchlistStore`.
+    @discardableResult
+    static func followMember(matching rawName: String) -> String? {
+        let q = rawName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty, let feed = currentFeed() else { return nil }
+        let member = feed.members.first { $0.name.lowercased() == q }
+            ?? feed.members.first { $0.name.lowercased().hasPrefix(q) }
+            ?? feed.members.first { $0.name.lowercased().contains(q) }
+        guard let member else { return nil }
+
+        var current = defaults.stringArray(forKey: Key.followedMembers) ?? []
+        let wasEmpty = current.isEmpty
+            && (defaults.stringArray(forKey: Key.tickers) ?? []).isEmpty
+        if !current.contains(member.id) {
+            current.append(member.id)
+            current.sort()
+            defaults.set(current, forKey: Key.followedMembers)
+        }
+        // First-ever watch or follow: treat everything already public as seen, exactly as
+        // the in-app first-time setup does, so opening the app does not fire a backlog.
+        if wasEmpty, (defaults.stringArray(forKey: Key.seenRowIDs) ?? []).isEmpty {
+            defaults.set(feed.trades.map(\.id), forKey: Key.seenRowIDs)
+        }
+        return member.name
+    }
+
     /// Records that a refresh reached the Clerk with a good response, now.
     static func noteClerkContact(at date: Date = Date()) {
         defaults.set(ISO8601DateFormatter().string(from: date), forKey: Key.lastClerkContact)

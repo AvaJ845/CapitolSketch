@@ -145,27 +145,47 @@ struct DisclosureDetailView: View {
                 }
             }
 
-            if let ticker = trade.ticker {
+            if trade.ticker != nil || store.member(id: trade.memberID) != nil {
                 Section {
-                    Button {
-                        watchlist.toggle(ticker)
-                    } label: {
-                        Label(
-                            watchlist.contains(ticker)
-                                ? "Stop watching \(ticker)"
-                                : "Watch \(ticker)",
-                            systemImage: watchlist.contains(ticker) ? "bell.fill" : "bell"
-                        )
+                    if let ticker = trade.ticker {
+                        Button {
+                            watchlist.toggle(ticker, markingSeenIn: store.trades)
+                        } label: {
+                            Label(
+                                watchlist.contains(ticker)
+                                    ? "Stop watching \(ticker)"
+                                    : "Watch \(ticker)",
+                                systemImage: watchlist.contains(ticker) ? "bell.fill" : "bell"
+                            )
+                        }
+                        .listRowBackground(Ink.card)
                     }
 
-                    NavigationLink {
-                        TickerDetailView(ticker: ticker)
-                    } label: {
-                        Label("Every disclosure in \(ticker)", systemImage: "list.bullet")
+                    if let member = store.member(id: trade.memberID) {
+                        Button {
+                            watchlist.toggleFollow(member.id, markingSeenIn: store.trades)
+                        } label: {
+                            Label(
+                                watchlist.isFollowing(member.id)
+                                    ? "Following \(member.name)"
+                                    : "Follow \(member.name)",
+                                systemImage: watchlist.isFollowing(member.id) ? "bell.fill" : "bell"
+                            )
+                        }
+                        .listRowBackground(Ink.card)
+                    }
+
+                    if let ticker = trade.ticker {
+                        NavigationLink {
+                            TickerDetailView(ticker: ticker)
+                        } label: {
+                            Label("Every disclosure in \(ticker)", systemImage: "list.bullet")
+                        }
+                        .listRowBackground(Ink.card)
                     }
                 } footer: {
-                    Text("Watching a ticker only decides when you get a notification. "
-                         + "It stays on this phone.")
+                    Text("Watching a ticker or following a member only decides when you get "
+                         + "a notification. Both stay on this phone.")
                 }
             }
 
@@ -214,7 +234,7 @@ struct TickerDetailView: View {
 
             Section {
                 Button {
-                    watchlist.toggle(ticker)
+                    watchlist.toggle(ticker, markingSeenIn: store.trades)
                 } label: {
                     Label(
                         watchlist.contains(ticker) ? "Stop watching" : "Watch this ticker",
@@ -224,11 +244,22 @@ struct TickerDetailView: View {
                 .listRowBackground(Ink.card)
             }
 
-            Section("Disclosures") {
-                ForEach(trades.prefix(300)) { trade in
-                    NavigationLink(value: trade) { DisclosureRow(trade: trade) }
-                        .disclosureRowChrome()
+            Section {
+                if trades.isEmpty {
+                    Text("No disclosed transaction mentions this ticker in the loaded filings.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .listRowBackground(Ink.card)
+                } else {
+                    ForEach(trades.prefix(300)) { trade in
+                        NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                            .disclosureRowChrome()
+                    }
                 }
+            } header: {
+                Text("Disclosures")
+            } footer: {
+                TruncationNote(shown: 300, total: trades.count)
             }
         }
         .listStyle(.insetGrouped)
