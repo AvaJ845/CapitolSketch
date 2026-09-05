@@ -28,6 +28,12 @@ struct CapitolSketchApp: App {
     }
 }
 
+/// A ticker to present modally, from `ShowTickerIntent`.
+struct TickerRoute: Identifiable, Hashable {
+    let ticker: String
+    var id: String { ticker }
+}
+
 struct RootView: View {
     @Environment(TradeStore.self) private var store
     @Environment(WatchlistStore.self) private var watchlist
@@ -37,6 +43,7 @@ struct RootView: View {
 
     @State private var selection: Section = .feed
     @State private var routedTrade: Trade?
+    @State private var routedTicker: TickerRoute?
     @State private var splitVisibility: NavigationSplitViewVisibility = .automatic
     /// When the scene last became active and actually ran the refresh + alert scan.
     /// A quick app-switch flurry (Control Center, notification banner, share sheet)
@@ -89,8 +96,27 @@ struct RootView: View {
                 .environment(watchlist)
                 .tint(Ink.accent)
             }
-            .task { applyLaunchArguments() }
+            .sheet(item: $routedTicker) { route in
+                NavigationStack {
+                    TickerDetailView(ticker: route.ticker)
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { routedTicker = nil }
+                            }
+                        }
+                }
+                .environment(store)
+                .environment(watchlist)
+                .tint(Ink.accent)
+            }
+            .task {
+                applyLaunchArguments()
+                applyPendingIntentRoute()
+            }
             .onOpenURL { handle(url: $0) }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { applyPendingIntentRoute() }
+            }
             .onChange(of: notifications.pendingRowID) { _, id in routeToFiling(id) }
             .onChange(of: notifications.pendingDigest) { _, digest in
                 if digest {
@@ -219,6 +245,29 @@ struct RootView: View {
         else if args.contains("-tab-settings") { selection = .about }
         else if args.contains("-tab-members") { selection = .members }
         else if args.contains("-tab-feed") { selection = .feed }
+    }
+
+    /// Consumes a one-shot instruction left by an App Shortcut (`SharedContainer.Key
+    /// .pendingRoute`). Local only: the value is read from this device's App Group
+    /// defaults, acted on, and cleared. Nothing here fetches anything the app would not
+    /// already fetch on a normal open.
+    private func applyPendingIntentRoute() {
+        let key = SharedContainer.Key.pendingRoute
+        guard let route = SharedContainer.defaults.string(forKey: key) else { return }
+        SharedContainer.defaults.removeObject(forKey: key)
+
+        switch route {
+        case "watchlist":
+            selection = .watchlist
+        case "refresh":
+            selection = .feed
+            Task { await store.refresh(force: true) }
+        case let r where r.hasPrefix("ticker:"):
+            let symbol = String(r.dropFirst("ticker:".count))
+            if !symbol.isEmpty { routedTicker = TickerRoute(ticker: symbol) }
+        default:
+            break
+        }
     }
 
     /// `-seed-watchlist` fills the watchlist for screenshots. Runs after the feed loads

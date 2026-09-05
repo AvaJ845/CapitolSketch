@@ -1,19 +1,29 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 import DisclosureKit
 
 /// One widget, Home Screen and Lock Screen. The timeline is the refresh: WidgetKit
-/// calls `getTimeline`, which may hit the Clerk over URLSession. There is no
+/// calls the provider, which may hit the Clerk over URLSession. There is no
 /// BGTaskScheduler and no Live Activity.
+///
+/// The widget is configurable (`DisclosureWidgetIntent`): the reader picks between the
+/// latest filings, their watchlist & follows, or one pinned ticker. That choice only
+/// selects which already-downloaded rows to show — the Clerk fetch is identical
+/// whatever the configuration says.
 @main
 struct CapitolSketchWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "LatestDisclosures", provider: Provider()) { entry in
+        AppIntentConfiguration(
+            kind: "LatestDisclosures",
+            intent: DisclosureWidgetIntent.self,
+            provider: Provider()
+        ) { entry in
             DisclosureWidgetView(entry: entry)
                 .containerBackground(Ink.canvas, for: .widget)
         }
         .configurationDisplayName("House disclosures")
-        .description("Latest House stock-trade disclosures, or hits on tickers you watch.")
+        .description("Latest House stock-trade disclosures, hits on tickers you watch and members you follow, or one ticker.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
@@ -31,51 +41,58 @@ struct DisclosureEntry: TimelineEntry {
     let watchlistEmpty: Bool
 }
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
 
     func placeholder(in context: Context) -> DisclosureEntry {
         DisclosureEntry(date: Date(), trades: [], generatedAt: nil, watchlistEmpty: true)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (DisclosureEntry) -> Void) {
-        completion(currentEntry())
+    func snapshot(for configuration: DisclosureWidgetIntent, in context: Context) async -> DisclosureEntry {
+        currentEntry(for: configuration)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<DisclosureEntry>) -> Void) {
-        // WidgetKit's completion handler predates strict concurrency and is not Sendable.
-        // It is invoked exactly once, from inside this Task; hand it across the boundary
-        // explicitly rather than letting the closure capture rule flag it.
-        nonisolated(unsafe) let completion = completion
-        Task {
-            await refreshFromClerk()
-            let entry = currentEntry()
-            let next = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
-                ?? Date().addingTimeInterval(6 * 3600)
-            completion(Timeline(entries: [entry], policy: .after(next)))
-        }
+    func timeline(for configuration: DisclosureWidgetIntent, in context: Context) async -> Timeline<DisclosureEntry> {
+        await refreshFromClerk()
+        let entry = currentEntry(for: configuration)
+        let next = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
+            ?? Date().addingTimeInterval(6 * 3600)
+        return Timeline(entries: [entry], policy: .after(next))
     }
 
-    private func currentEntry() -> DisclosureEntry {
+    /// Builds the entry for a configuration. The watchlist / follow sets and the pinned
+    /// ticker are read here purely to choose which already-downloaded rows to show;
+    /// nothing in this path — or in `refreshFromClerk` — varies a request by them.
+    private func currentEntry(for configuration: DisclosureWidgetIntent) -> DisclosureEntry {
         let feed = loadFeed()
         let defaults = SharedContainer.defaults
         let tickers = Set(
             (defaults.stringArray(forKey: SharedContainer.Key.tickers) ?? []).map { $0.uppercased() }
         )
-        // A device-local trigger, read only to pick which already-downloaded rows to
-        // show. Nothing here or in `refreshFromClerk` varies a request by it.
         let followed = Set(
             defaults.stringArray(forKey: SharedContainer.Key.followedMembers) ?? []
         )
-        let watchlistEmpty = tickers.isEmpty && followed.isEmpty
+
         let rows: [Trade]
-        if watchlistEmpty {
+        let watchlistEmpty: Bool
+        switch configuration.mode {
+        case .ticker:
+            let symbol = SharedContainer.normalizedTicker(configuration.ticker ?? "")
+            watchlistEmpty = symbol.isEmpty
+            rows = symbol.isEmpty
+                ? Array(feed.trades.prefix(5))
+                : Array(feed.trades.filter { $0.ticker?.uppercased() == symbol }.prefix(5))
+        case .watchlist:
+            watchlistEmpty = tickers.isEmpty && followed.isEmpty
+            rows = watchlistEmpty
+                ? Array(feed.trades.prefix(5))
+                : Array(feed.trades
+                    .filter { $0.isWatchlistRelevant(watchedTickers: tickers, followedMembers: followed) }
+                    .prefix(5))
+        case .latest:
+            watchlistEmpty = true
             rows = Array(feed.trades.prefix(5))
-        } else {
-            rows = feed.trades
-                .filter { $0.isWatchlistRelevant(watchedTickers: tickers, followedMembers: followed) }
-                .prefix(5)
-                .map { $0 }
         }
+
         let generated = feed.generatedAt == .distantPast ? nil : feed.generatedAt
         return DisclosureEntry(
             date: Date(),
