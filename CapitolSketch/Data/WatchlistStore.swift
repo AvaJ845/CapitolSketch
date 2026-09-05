@@ -32,6 +32,11 @@ final class WatchlistStore {
     /// True when `seenRowIDs` was loaded from an older identifier scheme and has to be
     /// rebased against the feed before "new since you last looked" can mean anything.
     private var needsRowIDRebase = false
+    /// True when this launch found a watch or a follow already set but no `seenRowIDs` —
+    /// which happens when a headless App Shortcut added the first ticker/member before the
+    /// app had ever run (so there was no feed to stamp against). The next feed load treats
+    /// everything already public as seen, exactly as the in-app first-time setup does.
+    private var needsInitialSeenStamp = false
 
     var notificationsEnabled: Bool {
         didSet { defaults.set(notificationsEnabled, forKey: SharedContainer.Key.notifyEnabled) }
@@ -50,9 +55,41 @@ final class WatchlistStore {
         // A fresh install has no stored ids and nothing to rebase — just stamp the
         // scheme. An install carrying ids from the old scheme has to wait for the feed.
         needsRowIDRebase = storedScheme != Self.rowIDScheme && !seenRowIDs.isEmpty
+        needsInitialSeenStamp = seenRowIDs.isEmpty
+            && !(tickers.isEmpty && followedMemberIDs.isEmpty)
         if seenRowIDs.isEmpty {
             defaults.set(Self.rowIDScheme, forKey: SharedContainer.Key.rowIDScheme)
         }
+    }
+
+    /// Re-reads the device-local lists from the shared container. A headless App Shortcut
+    /// (`AddTickerToWatchlistIntent`, `FollowMemberIntent`) can write the App Group
+    /// defaults while the app sits backgrounded; this folds those writes into the running
+    /// app on the next foreground so the Watchlist tab and the alert scan stay in step.
+    /// Only touches state that actually changed, so it does not churn the view tree.
+    func reloadFromDefaults() {
+        let storedTickers = Set(defaults.stringArray(forKey: SharedContainer.Key.tickers) ?? [])
+        if storedTickers != tickers { tickers = storedTickers }
+
+        let storedFollows = Set(defaults.stringArray(forKey: SharedContainer.Key.followedMembers) ?? [])
+        if storedFollows != followedMemberIDs { followedMemberIDs = storedFollows }
+
+        let storedSeen = Set(defaults.stringArray(forKey: SharedContainer.Key.seenRowIDs) ?? [])
+        // A headless first-ticker write may have stamped everything-seen; take the union so
+        // an in-memory `markSeen` from this session is never lost.
+        if !storedSeen.isEmpty, !storedSeen.isSubset(of: seenRowIDs) {
+            seenRowIDs.formUnion(storedSeen)
+        }
+    }
+
+    /// One-time stamp for a watch/follow that a headless App Shortcut added before the app
+    /// had a feed to mark against. Runs once the feed is in hand.
+    func stampInitialSeenIfNeeded(against trades: [Trade]) {
+        guard needsInitialSeenStamp, !trades.isEmpty else { return }
+        needsInitialSeenStamp = false
+        guard seenRowIDs.isEmpty else { return }
+        seenRowIDs = Set(trades.map(\.id))
+        persistSeen()
     }
 
     /// One-time fix-up after `Trade.id` changed schemes: treat every disclosure already
@@ -98,6 +135,15 @@ final class WatchlistStore {
         isFollowing(memberID) ? unfollow(memberID) : follow(memberID)
     }
 
+    /// Follow/unfollow, and if this is the very first watch or follow, treat everything
+    /// already public as seen so the reader is not buried in a backlog of alerts about
+    /// disclosures that were public before they asked. Mirrors the first-ticker path.
+    func toggleFollow(_ memberID: String, markingSeenIn trades: [Trade]) {
+        let wasEmpty = isEmpty
+        toggleFollow(memberID)
+        if wasEmpty, isFollowing(memberID) { markAllSeen(in: trades) }
+    }
+
     /// Longest symbol the feed can hold is the parser's `[A-Z][A-Z0-9.\-]{0,6}`, so
     /// anything past a small margin is a paste accident, not a ticker.
     static let maxTickerLength = SharedContainer.maxTickerLength
@@ -116,6 +162,16 @@ final class WatchlistStore {
 
     func toggle(_ ticker: String) {
         contains(ticker) ? remove(ticker) : add(ticker)
+    }
+
+    /// Toggle a ticker, and if adding it is the very first watch or follow, mark
+    /// everything already public as seen — same guard as the in-app first-time setup, so
+    /// tapping "Watch" on a detail screen can't fire a backlog of alerts.
+    func toggle(_ ticker: String, markingSeenIn trades: [Trade]) {
+        let wasEmpty = isEmpty
+        let willAdd = !contains(ticker)
+        toggle(ticker)
+        if wasEmpty, willAdd { markAllSeen(in: trades) }
     }
 
     func removeAll() {

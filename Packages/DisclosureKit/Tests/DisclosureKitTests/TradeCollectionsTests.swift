@@ -85,4 +85,25 @@ struct DisclosureLagStatsTests {
         #expect(s.buckets.count == 5)
         #expect(s.buckets.allSatisfy { $0.count == 0 })
     }
+
+    @Test("A same-day disclosure is a zero lag in the first bucket, not an impossible date")
+    func sameDayLag() {
+        let s = [trade(lag: 0)].disclosureLagStats
+        #expect(s.count == 1)
+        #expect(s.medianDays == 0)
+        #expect(s.meanDays == 0)
+        #expect(s.overFortyFiveCount == 0)
+        let byLabel = Dictionary(uniqueKeysWithValues: s.buckets.map { ($0.label, $0.count) })
+        #expect(byLabel["7 days or fewer"] == 1)
+        #expect(s.buckets.reduce(0) { $0 + $1.count } == 1)
+    }
+
+    @Test("When every row has an impossible date the stats are empty, not negative")
+    func allImpossible() {
+        let s = [trade(lag: -1), trade(lag: -10), trade(lag: -400)].disclosureLagStats
+        #expect(s.count == 0)
+        #expect(s.medianDays == 0)
+        #expect(s.meanDays == 0)
+        #expect(s.buckets.allSatisfy { $0.count == 0 })
+    }
 }

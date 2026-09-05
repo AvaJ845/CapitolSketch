@@ -130,6 +130,7 @@ struct RootView: View {
                 // pending notification/widget tap, the first watchlist alert check, the
                 // simulator seed — waits until it is in hand.
                 watchlist.rebaseSeenRowIDsIfNeeded(against: store.trades)
+                watchlist.stampInitialSeenIfNeeded(against: store.trades)
                 seedWatchlistIfRequested()
                 routeToFiling(notifications.pendingRowID)
                 openDemoFilingIfRequested()
@@ -137,6 +138,10 @@ struct RootView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
+                // A headless App Shortcut may have edited the watch/follow lists in the
+                // App Group while we were backgrounded — fold those in. Device-local only.
+                watchlist.reloadFromDefaults()
+                watchlist.stampInitialSeenIfNeeded(against: store.trades)
                 // Clearing the badge is free and expected every time the app opens.
                 Task { await AlertService.clearBadge() }
                 // The refresh (30-min network throttle) and the alert scan are not:
