@@ -188,6 +188,11 @@ struct RootView: View {
                         .badge(section == .watchlist ? watchlistBadge : 0)
                         .tag(Optional(section))
                 }
+                NavigationLink {
+                    StandoutsView()
+                } label: {
+                    Label("Standouts", systemImage: "rectangle.stack")
+                }
             }
             .navigationTitle("CapitolSketch")
             .navigationBarTitleDisplayMode(.inline)
@@ -214,15 +219,19 @@ struct RootView: View {
 
     // MARK: - Routing
 
-    /// `capitolsketch://` deep links. A hostile link can only pick a tab or ask for a
-    /// filing by id; the id is used solely as an equality match against rows already in
-    /// the loaded feed (`routeToFiling`), so an unknown or crafted id navigates nowhere
-    /// and nothing is parsed, written or escalated.
+    /// `capitolsketch://` deep links. A hostile link can only pick a tab, open the
+    /// Standouts screen (already one tap from the masthead), or ask for a filing by id;
+    /// the id is used solely as an equality match against rows already in the loaded feed
+    /// (`routeToFiling`), so an unknown or crafted id navigates nowhere and nothing is
+    /// parsed, written or escalated.
     private func handle(url: URL) {
         switch url.host {
         case "watchlist": selection = .watchlist
         case "members": selection = .members
         case "settings", "about": selection = .about
+        case "standouts":
+            selection = .feed
+            store.pendingStandoutsRoute = true
         case "filing":
             let id = url.pathComponents.last { $0 != "/" }
             routeToFiling(id)
@@ -250,6 +259,13 @@ struct RootView: View {
         else if args.contains("-tab-settings") { selection = .about }
         else if args.contains("-tab-members") { selection = .members }
         else if args.contains("-tab-feed") { selection = .feed }
+
+        // Screenshot QA: land straight on the Standouts screen (same push the
+        // `capitolsketch://standouts` deep link performs).
+        if args.contains("-route-standouts") {
+            selection = .feed
+            store.pendingStandoutsRoute = true
+        }
     }
 
     /// Consumes a one-shot instruction left by an App Shortcut (`SharedContainer.Key

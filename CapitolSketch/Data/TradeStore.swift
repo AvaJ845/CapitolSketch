@@ -14,11 +14,66 @@ import DisclosureKit
 final class TradeStore {
 
     private(set) var feed: TradeFeed = .empty {
-        didSet { trades = feed.trades }
+        didSet {
+            trades = feed.trades
+            recomputeStandouts()
+        }
     }
 
     /// Newest first. The feed is stored sorted, so this is not re-sorted per view.
     private(set) var trades: [Trade] = []
+
+    // MARK: - Standouts
+
+    /// The factual-superlatives lists for the Standouts screen, keyed by category. Empty
+    /// until the feed has loaded and the first compute finishes.
+    private(set) var standouts: [Standout.Category: [Standout]] = [:]
+    /// Tickers in the most members' filings this snapshot.
+    private(set) var widelyHeld: [WidelyHeldTicker] = []
+    /// True while the first (or a fresh) standouts compute is running off the main actor.
+    private(set) var standoutsLoading = false
+
+    private var standoutsTask: Task<Void, Never>?
+
+    /// Set by the `capitolsketch://standouts` deep link; consumed by `FeedView`, which
+    /// pushes the Standouts screen onto its stack and clears it. A hostile link can only
+    /// open a screen that is already one tap from the masthead.
+    var pendingStandoutsRoute = false
+
+    /// Recomputes the standout lists off the main actor whenever the feed changes.
+    ///
+    /// Seven passes over ~10k rows measured at a few milliseconds on an iPhone 17 Pro
+    /// simulator, so a synchronous compute would not visibly jank — but the feed also
+    /// loads and refreshes off the main actor, so this stays off it too rather than
+    /// pushing a burst of work onto the first frame. Results publish into
+    /// `@Observable` properties; `standoutsLoading` covers the gap.
+    private func recomputeStandouts() {
+        standoutsTask?.cancel()
+        let snapshot = feed
+        guard !snapshot.trades.isEmpty else {
+            standouts = [:]
+            widelyHeld = []
+            standoutsLoading = false
+            return
+        }
+        standoutsLoading = true
+        standoutsTask = Task { [weak self] in
+            let started = Date()
+            let computed = await Task.detached(priority: .utility) {
+                (byCategory: Standouts.byCategory(in: snapshot),
+                 widelyHeld: Standouts.widelyHeldTickers(in: snapshot))
+            }.value
+            if Task.isCancelled { return }
+            guard let self else { return }
+            self.standouts = computed.byCategory
+            self.widelyHeld = computed.widelyHeld
+            self.standoutsLoading = false
+            #if DEBUG
+            let ms = Int(Date().timeIntervalSince(started) * 1000)
+            print("[Standouts] \(snapshot.trades.count) trades computed in \(ms) ms")
+            #endif
+        }
+    }
 
     private(set) var isRefreshing = false
     /// True until the bundled snapshot has been read off disk. The 4.6 MB feed is decoded
