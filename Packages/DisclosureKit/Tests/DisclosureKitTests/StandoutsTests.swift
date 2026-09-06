@@ -35,26 +35,34 @@ struct StandoutsTests {
 
     // MARK: - Rule 1 · topBracket
 
-    @Test("Top brackets: $5M-floor range qualifies, .atLeast sorts first, $1M–$5M does not")
+    @Test("Top brackets: floor ≥ $5M only; reduced Spouse/DC Over $1M is not a top bracket")
     func topBracket() {
+        let open50M = mk("open-50m", member: "z", ticker: "ZZZ",
+                         amount: amt(.atLeast, 50_000_001_00))
         let feed = makeFeed(
-            Fixture.issaLargeBracket.parse().trades
-            + Fixture.petersOverThreshold.parse().trades
-            + Fixture.pelosiMultiAsset.parse().trades
+            Fixture.issaLargeBracket.parse().trades       // $25,000,001 – $50,000,000 range
+            + Fixture.petersOverThreshold.parse().trades  // Spouse/DC Over $1,000,000 — floor $1M
+            + Fixture.pelosiMultiAsset.parse().trades      // largest is $1,000,001 – $5,000,000
+            + [open50M]
         )
         let rows = Standouts.topBracket(in: feed)
 
-        // Issa's $25,000,001 – $50,000,000 bracket is over the $5M floor.
+        // The $50M+ open bracket has the highest floor, so it leads.
+        #expect(rows.first?.trade.id == "open-50m")
+        // Issa's $25,000,001 – $50,000,000 bracket clears the $5M floor.
         #expect(rows.contains { $0.trade.amount.lowCents == 25_000_001_00 })
-        // Peters' open-ended bracket qualifies and outranks every range.
-        #expect(rows.first?.trade.amount.kind == .atLeast)
+        // Spouse/DC Over $1,000,000 is the reduced reporting standard, floor $1M — excluded.
+        let petersIDs = Set(Fixture.petersOverThreshold.parse().trades.map(\.id))
+        #expect(!rows.contains { petersIDs.contains($0.trade.id) })
         // Pelosi's largest is $1,000,001 – $5,000,000 — below the $5M floor.
         let pelosiIDs = Set(Fixture.pelosiMultiAsset.parse().trades.map(\.id))
         #expect(!rows.contains { pelosiIDs.contains($0.trade.id) })
         // The reason is the bracket exactly as the form states it.
         #expect(rows.allSatisfy { $0.reason == $0.trade.amount.label })
-        // Every row is genuinely in the top brackets.
-        #expect(rows.allSatisfy { $0.trade.amount.kind == .atLeast || $0.trade.amount.lowCents >= 500_000_000 })
+        // Every row genuinely clears the $5M floor.
+        #expect(rows.allSatisfy { $0.trade.amount.lowCents >= 500_000_000 })
+        // Ordered by floor, descending.
+        #expect(rows.map(\.trade.amount.lowCents) == rows.map(\.trade.amount.lowCents).sorted(by: >))
     }
 
     // MARK: - Rule 2 · filedLate
@@ -157,7 +165,7 @@ struct StandoutsTests {
             mk("a-2", member: "a", ticker: "BBB", amount: amt(.range, 500_000_100, 2_500_000_000)),
             // B: largest is $1,001 – $15,000 — under the $250,000 floor.
             mk("b-1", member: "b", ticker: "CCC", amount: amt(.range, 100_100, 1_500_000)),
-            // C: an open-ended bracket outranks every range.
+            // C: a $50M open-ended bracket — highest floor in the feed.
             mk("c-1", member: "c", ticker: "DDD", amount: amt(.atLeast, 5_000_000_000)),
         ])
         let rows = Standouts.memberLargest(in: feed)

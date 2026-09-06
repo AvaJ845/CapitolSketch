@@ -71,22 +71,25 @@ public enum Standouts {
 
     // MARK: - Rule 1 · topBracket
 
-    /// Trades placed in the form's highest dollar brackets: an open-ended top bracket, or
-    /// a range whose floor is at least $5,000,000. The bracket is the only figure the
-    /// form states, so it is the only figure shown.
+    /// Trades whose disclosed floor is at least $5,000,000 — the top of the form's own
+    /// bracket scale. Ranked by that floor, so a genuine `$50,000,001+` or
+    /// `$25,000,001 – $50,000,000` leads and the reduced `Spouse/DC Over $1,000,000`
+    /// standard (floor $1M — the form asks for nothing more precise) never appears here.
+    /// The bracket is the only figure the form states, so it is the only figure shown.
     public static func topBracket(in feed: TradeFeed) -> [Standout] {
         feed.trades
-            .filter { $0.amount.kind == .atLeast || $0.amount.lowCents >= 500_000_000 }
+            .filter { $0.amount.lowCents >= 500_000_000 }
             .sorted(by: bracketOrder)
             .map { Standout(category: .topBracket, trade: $0, reason: $0.amount.label) }
     }
 
-    /// `.atLeast` first, then larger floor first, then most recently disclosed, then id.
+    /// Larger disclosed floor first; at an equal floor the open-ended bracket (no stated
+    /// ceiling) ranks above a bounded range; then most recently disclosed, then id.
     private static func bracketOrder(_ a: Trade, _ b: Trade) -> Bool {
+        if a.amount.lowCents != b.amount.lowCents { return a.amount.lowCents > b.amount.lowCents }
         let aOpen = a.amount.kind == .atLeast
         let bOpen = b.amount.kind == .atLeast
         if aOpen != bOpen { return aOpen }
-        if a.amount.lowCents != b.amount.lowCents { return a.amount.lowCents > b.amount.lowCents }
         if a.disclosedDate != b.disclosedDate { return a.disclosedDate > b.disclosedDate }
         return a.id < b.id
     }

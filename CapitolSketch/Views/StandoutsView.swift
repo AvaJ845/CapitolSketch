@@ -24,7 +24,7 @@ struct StandoutsView: View {
             case .topBracket: return "Largest brackets"
             case .filedLate: return "Filed latest"
             case .widelyHeld: return "Traded by the most members"
-            case .newPosition: return "New positions"
+            case .newPosition: return "First in a ticker"
             case .offPattern: return "Off pattern"
             case .rareTrader: return "Rare traders"
             case .memberLargest: return "Each member's largest"
