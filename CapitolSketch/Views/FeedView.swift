@@ -85,6 +85,9 @@ struct FeedView: View {
     @State private var filter = TradeFilter()
     @State private var showingFilters = false
     @State private var path = NavigationPath()
+    /// The `-route-standouts` QA launch argument is one-shot: honoured on the first
+    /// chance, then left alone so a later back-navigation stays put.
+    @State private var didRouteStandoutsFromLaunch = false
 
     /// Ids the `offPattern` rule surfaced, from the store's already-computed standouts —
     /// so the "off pattern" filter needs no compute of its own here.
@@ -161,23 +164,12 @@ struct FeedView: View {
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
             .navigationDestination(for: StandoutsRoute.self) { _ in StandoutsView() }
             .refreshable { await store.refresh(force: true) }
-            .onChange(of: store.pendingStandoutsRoute) { _, pending in
-                guard pending else { return }
-                if !path.isEmpty { path = NavigationPath() }
-                path.append(StandoutsRoute())
-                store.pendingStandoutsRoute = false
-            }
-            .task {
-                // The deep link (or the QA launch arg) can land before this view is on
-                // screen, and before RootView has consumed the launch arguments.
-                let wantsStandouts = store.pendingStandoutsRoute
-                    || ProcessInfo.processInfo.arguments.contains("-route-standouts")
-                if wantsStandouts {
-                    store.pendingStandoutsRoute = false
-                    try? await Task.sleep(for: .milliseconds(350))
-                    if path.isEmpty { path.append(StandoutsRoute()) }
-                }
-            }
+            // The deep link / QA launch arg can land before this view is on screen and
+            // before the feed has loaded, so the push is attempted from each of the three
+            // moments any of that can settle.
+            .task { routeToStandoutsIfNeeded() }
+            .onChange(of: store.pendingStandoutsRoute) { _, _ in routeToStandoutsIfNeeded() }
+            .onChange(of: store.isLoading) { _, _ in routeToStandoutsIfNeeded() }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -195,6 +187,21 @@ struct FeedView: View {
                     .presentationDetents([.medium, .large])
                     .tint(Ink.accent)
             }
+        }
+    }
+
+    /// Pushes the Standouts screen if the deep link set `pendingStandoutsRoute` or the
+    /// `-route-standouts` launch argument is present. Idempotent: a no-op once the screen
+    /// is already on the stack.
+    private func routeToStandoutsIfNeeded() {
+        guard path.isEmpty else { return }
+        if store.pendingStandoutsRoute {
+            store.pendingStandoutsRoute = false
+            path.append(StandoutsRoute())
+        } else if !didRouteStandoutsFromLaunch,
+                  ProcessInfo.processInfo.arguments.contains("-route-standouts") {
+            didRouteStandoutsFromLaunch = true
+            path.append(StandoutsRoute())
         }
     }
 
