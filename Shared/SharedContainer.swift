@@ -88,12 +88,9 @@ enum SharedContainer {
     /// transmitted and no fetch varies with it — see `WatchlistStore`.
     @discardableResult
     static func followMember(matching rawName: String) -> String? {
-        let q = rawName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty, let feed = currentFeed() else { return nil }
-        let member = feed.members.first { $0.name.lowercased() == q }
-            ?? feed.members.first { $0.name.lowercased().hasPrefix(q) }
-            ?? feed.members.first { $0.name.lowercased().contains(q) }
-        guard let member else { return nil }
+        guard let feed = currentFeed(),
+              let member = matchMemberName(rawName, in: feed.members)
+        else { return nil }
 
         var current = defaults.stringArray(forKey: Key.followedMembers) ?? []
         let wasEmpty = current.isEmpty
