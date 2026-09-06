@@ -80,6 +80,14 @@ final class WatchlistStore {
         if !storedSeen.isEmpty, !storedSeen.isSubset(of: seenRowIDs) {
             seenRowIDs.formUnion(storedSeen)
         }
+
+        // If a headless write just introduced the first watch or follow and left no seen
+        // set behind — it had no feed to stamp against — re-arm the initial stamp. The
+        // caller runs `stampInitialSeenIfNeeded` straight after this, which then treats
+        // the feed already in hand as seen instead of surfacing all of it as "new".
+        if seenRowIDs.isEmpty, !(tickers.isEmpty && followedMemberIDs.isEmpty) {
+            needsInitialSeenStamp = true
+        }
     }
 
     /// One-time stamp for a watch/follow that a headless App Shortcut added before the app
