@@ -1,6 +1,21 @@
 import SwiftUI
 import DisclosureKit
 
+/// The three dollar floors offered by the "Minimum size" filter, in cents.
+enum BracketFloor: Int, CaseIterable, Hashable, Identifiable {
+    case m1 = 100_000_000, m5 = 500_000_000, m50 = 5_000_000_000
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .m1: return "$1M+"
+        case .m5: return "$5M+"
+        case .m50: return "$50M+"
+        }
+    }
+}
+
 /// Filters applied to the main feed.
 struct TradeFilter: Equatable {
     var search = ""
@@ -11,17 +26,32 @@ struct TradeFilter: Equatable {
     var states: Set<String> = []
     var optionsOnly = false
     var lateOnly = false
+    /// Keep only trades whose bracket floor is at least this, or an open-ended bracket.
+    var minBracket: BracketFloor? = nil
+    /// Keep only the trades the `offPattern` standout rule surfaced.
+    var offPatternOnly = false
 
     var isActive: Bool {
-        !types.isEmpty || !owners.isEmpty || !states.isEmpty || optionsOnly || lateOnly
+        !types.isEmpty || !owners.isEmpty || !states.isEmpty
+            || optionsOnly || lateOnly || minBracket != nil || offPatternOnly
     }
 
     var activeCount: Int {
-        types.count + owners.count + states.count + (optionsOnly ? 1 : 0) + (lateOnly ? 1 : 0)
+        types.count + owners.count + states.count
+            + (optionsOnly ? 1 : 0) + (lateOnly ? 1 : 0)
+            + (minBracket != nil ? 1 : 0) + (offPatternOnly ? 1 : 0)
     }
 
-    /// - Parameter stateOf: maps a member ID to their two-letter state code.
-    func apply(to trades: [Trade], stateOf: (String) -> String?) -> [Trade] {
+    /// - Parameters:
+    ///   - stateOf: maps a member ID to their two-letter state code.
+    ///   - offPatternIDs: the trade ids the `offPattern` standout rule surfaced, used
+    ///     only when `offPatternOnly` is set. Passed in the same way as `stateOf` so the
+    ///     filter stays free of any dependency on the store.
+    func apply(
+        to trades: [Trade],
+        stateOf: (String) -> String?,
+        offPatternIDs: Set<String> = []
+    ) -> [Trade] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
         return trades.filter { t in
             if !types.isEmpty && !types.contains(t.txType) { return false }
@@ -31,6 +61,11 @@ struct TradeFilter: Equatable {
             }
             if optionsOnly && !t.isOption { return false }
             if lateOnly && !t.isLateFiling { return false }
+            if let floor = minBracket,
+               !(t.amount.kind == .atLeast || t.amount.lowCents >= floor.rawValue) {
+                return false
+            }
+            if offPatternOnly && !offPatternIDs.contains(t.id) { return false }
             if !q.isEmpty {
                 let haystack = "\(t.memberName) \(t.ticker ?? "") \(t.asset)".lowercased()
                 if !haystack.contains(q) { return false }
@@ -51,8 +86,18 @@ struct FeedView: View {
     @State private var showingFilters = false
     @State private var path = NavigationPath()
 
+    /// Ids the `offPattern` rule surfaced, from the store's already-computed standouts —
+    /// so the "off pattern" filter needs no compute of its own here.
+    private var offPatternIDs: Set<String> {
+        Set((store.standouts[.offPattern] ?? []).map(\.trade.id))
+    }
+
     private var results: [Trade] {
-        filter.apply(to: store.trades) { store.member(id: $0)?.state }
+        filter.apply(
+            to: store.trades,
+            stateOf: { store.member(id: $0)?.state },
+            offPatternIDs: offPatternIDs
+        )
     }
 
     /// Distinct member states present in the feed, for the filter sheet.
@@ -249,10 +294,25 @@ private struct FilterSheet: View {
                 }
 
                 Section {
+                    Picker("Minimum size", selection: $filter.minBracket) {
+                        Text("None").tag(BracketFloor?.none)
+                        ForEach(BracketFloor.allCases) { floor in
+                            Text(floor.label).tag(BracketFloor?.some(floor))
+                        }
+                    }
+                } footer: {
+                    Text("Keeps trades whose disclosed bracket starts at or above this, "
+                         + "plus every open-ended top bracket.")
+                }
+
+                Section {
                     Toggle("Options only", isOn: $filter.optionsOnly)
                     Toggle("Filed late (over 45 days)", isOn: $filter.lateOnly)
+                    Toggle("Off the member's usual pattern", isOn: $filter.offPatternOnly)
                 } footer: {
-                    Text("The STOCK Act requires disclosure within 45 days of the transaction.")
+                    Text("The STOCK Act requires disclosure within 45 days of the "
+                         + "transaction. \"Off the member's usual pattern\" shows single-stock "
+                         + "trades by members whose disclosed history is mostly funds.")
                 }
             }
             .navigationTitle("Filters")
