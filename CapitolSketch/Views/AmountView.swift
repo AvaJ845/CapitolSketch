@@ -33,6 +33,7 @@ struct AmountView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             figure
         }
@@ -93,15 +94,31 @@ struct AmountView: View {
     }
 
     private var openEnded: some View {
-        HStack(spacing: 8) {
-            endpoint(amount.headline)
-            RangeTrack(axis: .horizontal, openEnded: true)
-                .frame(minWidth: 40, idealWidth: 64, maxWidth: 88, minHeight: 14)
-            // The open end is a 1.4pt arrowhead; the meaning cannot rest on that alone.
-            Text("no ceiling")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
+        // The open end is a 1.4pt arrowhead; the meaning cannot rest on that alone.
+        let ceiling = Text("no ceiling")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+        return Group {
+            if isStacked {
+                // Across the page the headline, the track and the caption overflow the
+                // card at the accessibility sizes, so the caption drops below.
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        endpoint(amount.headline)
+                        RangeTrack(axis: .horizontal, openEnded: true)
+                            .frame(minWidth: 40, idealWidth: 64, maxWidth: 88, minHeight: 14)
+                    }
+                    ceiling
+                }
+            } else {
+                HStack(spacing: 8) {
+                    endpoint(amount.headline)
+                    RangeTrack(axis: .horizontal, openEnded: true)
+                        .frame(minWidth: 40, idealWidth: 64, maxWidth: 88, minHeight: 14)
+                    ceiling
+                }
+            }
         }
         .fixedSize(horizontal: false, vertical: true)
     }

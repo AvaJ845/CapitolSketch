@@ -130,6 +130,9 @@ struct MonogramView: View {
     let name: String
 
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 36
+    /// Follows Dynamic Type, but stops growing before the disc crowds the name off its
+    /// row at the accessibility sizes.
+    private var clampedSize: CGFloat { min(size, 52) }
 
     private var initials: String {
         let parts = name.split(separator: " ").filter { !$0.hasSuffix(".") }
@@ -144,7 +147,7 @@ struct MonogramView: View {
             .minimumScaleFactor(0.7)
             .lineLimit(1)
             .foregroundStyle(Ink.badgeOnFill)
-            .frame(width: size, height: size)
+            .frame(width: clampedSize, height: clampedSize)
             .background(Ink.badgeFill, in: Circle())
             .accessibilityHidden(true)
     }
@@ -218,6 +221,11 @@ struct MemberChip: View {
     let name: String
     var filingCount: Int?
 
+    /// The chip caps its width so one very long name cannot run the strip off the
+    /// screen — but the cap has to grow with the text, or at the accessibility sizes
+    /// "Nancy Pelosi" collapses to "Na…". Scaled from the 240pt default.
+    @ScaledMetric(relativeTo: .subheadline) private var maxChipWidth: CGFloat = 240
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "person.fill")
@@ -226,6 +234,7 @@ struct MemberChip: View {
             Text(name)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .truncationMode(.tail)
             if let filingCount {
                 Text("\(filingCount)")
@@ -237,7 +246,7 @@ struct MemberChip: View {
         .padding(.vertical, 8)
         .background(Ink.chipFill, in: Capsule())
         .overlay(Capsule().strokeBorder(Ink.chipStroke, lineWidth: 0.75))
-        .frame(maxWidth: 240, alignment: .leading)
+        .frame(maxWidth: maxChipWidth, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             filingCount.map {

@@ -10,6 +10,7 @@ struct TickerCount: Identifiable, Hashable {
 
 struct MembersView: View {
     @Environment(TradeStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var query = ""
 
     private var rows: [(member: Member, count: Int)] {
@@ -25,19 +26,7 @@ struct MembersView: View {
                 Section {
                     ForEach(rows, id: \.member.id) { row in
                         NavigationLink(value: row.member) {
-                            HStack(spacing: 12) {
-                                MonogramView(name: row.member.name)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(row.member.name).font(.body.weight(.medium))
-                                    Text("\(row.member.chamber.label) · \(row.member.seat)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 8)
-                                Text("\(row.count)")
-                                    .font(.subheadline.weight(.medium).monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
+                            memberRow(row)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(
                                 "\(row.member.name), \(row.member.chamber.label) \(row.member.seat), "
@@ -59,6 +48,38 @@ struct MembersView: View {
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
+        }
+    }
+
+    /// One member. Monogram, name and seat beside the trade count normally; at the
+    /// accessibility text sizes the count drops below the name so the name keeps the
+    /// full row width instead of being broken mid-word.
+    @ViewBuilder
+    private func memberRow(_ row: (member: Member, count: Int)) -> some View {
+        let name = Text(row.member.name).font(.body.weight(.medium))
+        let seat = Text("\(row.member.chamber.label) · \(row.member.seat)")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        let count = Text("\(row.count)")
+            .font(.subheadline.weight(.medium).monospacedDigit())
+            .foregroundStyle(.secondary)
+
+        HStack(spacing: 12) {
+            MonogramView(name: row.member.name)
+            if typeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 2) {
+                    name
+                    seat
+                    count
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    name
+                    seat
+                }
+                Spacer(minLength: 8)
+                count
+            }
         }
     }
 }
