@@ -49,6 +49,7 @@ struct FeedView: View {
 
     @State private var filter = TradeFilter()
     @State private var showingFilters = false
+    @State private var path = NavigationPath()
 
     private var results: [Trade] {
         filter.apply(to: store.trades) { store.member(id: $0)?.state }
@@ -60,7 +61,7 @@ struct FeedView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if store.isLoading {
                     ProgressView("Loading filings…")
@@ -113,7 +114,25 @@ struct FeedView: View {
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
+            .navigationDestination(for: StandoutsRoute.self) { _ in StandoutsView() }
             .refreshable { await store.refresh(force: true) }
+            .onChange(of: store.pendingStandoutsRoute) { _, pending in
+                guard pending else { return }
+                if !path.isEmpty { path = NavigationPath() }
+                path.append(StandoutsRoute())
+                store.pendingStandoutsRoute = false
+            }
+            .task {
+                // The deep link (or the QA launch arg) can land before this view is on
+                // screen, and before RootView has consumed the launch arguments.
+                let wantsStandouts = store.pendingStandoutsRoute
+                    || ProcessInfo.processInfo.arguments.contains("-route-standouts")
+                if wantsStandouts {
+                    store.pendingStandoutsRoute = false
+                    try? await Task.sleep(for: .milliseconds(350))
+                    if path.isEmpty { path.append(StandoutsRoute()) }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -135,24 +154,47 @@ struct FeedView: View {
     }
 
     private var masthead: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(results.count.formatted()) transactions")
-                .font(.title3.weight(.semibold).monospacedDigit())
-            // The list is capped at 400 rows; say so here rather than only in a footer
-            // the reader may never scroll to, so the rest are known to exist.
-            if results.count > 400 {
-                Text("Showing 400 of \(results.count.formatted())")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(results.count.formatted()) transactions")
+                    .font(.title3.weight(.semibold).monospacedDigit())
+                // The list is capped at 400 rows; say so here rather than only in a footer
+                // the reader may never scroll to, so the rest are known to exist.
+                if results.count > 400 {
+                    Text("Showing 400 of \(results.count.formatted())")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                DataAgeLine(generatedAt: store.generatedAt)
+                if store.clerkContactIsStale {
+                    StaleContactNote(lastContact: store.lastClerkContact)
+                        .padding(.top, 2)
+                }
             }
-            DataAgeLine(generatedAt: store.generatedAt)
-            if store.clerkContactIsStale {
-                StaleContactNote(lastContact: store.lastClerkContact)
-                    .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            NavigationLink(value: StandoutsRoute()) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Image(systemName: "rectangle.stack")
+                        .imageScale(.medium)
+                    Text("Standouts in this snapshot")
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Ink.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .navigationLinkIndicatorVisibility(.hidden)
+            .accessibilityLabel("Standouts in this snapshot")
+            .accessibilityHint("The edges of this snapshot — biggest brackets, latest filings, most widely held")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 }
 
