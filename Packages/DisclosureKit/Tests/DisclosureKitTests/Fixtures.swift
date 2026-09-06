@@ -41,6 +41,21 @@ enum Fixture: String, CaseIterable {
     }
 }
 
+/// Wraps a hand-built array of trades in a `TradeFeed` so rules that take a whole feed
+/// can be exercised without parsing a PDF. Members are synthesised from the distinct
+/// `memberID`s present.
+func makeFeed(_ trades: [Trade]) -> TradeFeed {
+    let members = Set(trades.map(\.memberID)).sorted().map {
+        Member(id: $0, bioguideID: $0, name: $0, state: "CA", district: "1", chamber: .house)
+    }
+    return TradeFeed(
+        generatedAt: Date(timeIntervalSince1970: 1_780_000_000),
+        indexYears: [2026], source: "test",
+        members: members, trades: trades,
+        stats: ParseStats(filingsProcessed: 1, tradesParsed: trades.count)
+    )
+}
+
 extension Trade {
     /// Compact form used in assertions: what a human would read off the form.
     var signature: String {
