@@ -12,17 +12,36 @@ struct DisclosureDetailView: View {
 
     @Environment(WatchlistStore.self) private var watchlist
     @Environment(TradeStore.self) private var store
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var filingRowCount: Int { store.trades(inFiling: trade.filingID).count }
+
+    /// The ticker and the buy/sell badge. Side by side normally; stacked once Dynamic
+    /// Type reaches the accessibility sizes, where the two together overflow the card
+    /// and the badge's capsule distorts — the same treatment `DisclosureRow` gives them.
+    @ViewBuilder
+    private var symbolAndDirection: some View {
+        let symbol = Text(trade.displaySymbol)
+            .font(.title2.weight(.bold).monospaced())
+            .fixedSize(horizontal: false, vertical: true)
+        if typeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 8) {
+                DirectionBadge(type: trade.txType)
+                symbol
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                symbol
+                DirectionBadge(type: trade.txType)
+            }
+        }
+    }
 
     var body: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(trade.displaySymbol).font(.title2.weight(.bold).monospaced())
-                        DirectionBadge(type: trade.txType)
-                    }
+                    symbolAndDirection
                     Text(trade.cleanAssetName)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
