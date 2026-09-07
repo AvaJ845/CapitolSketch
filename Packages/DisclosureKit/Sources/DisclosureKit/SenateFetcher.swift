@@ -46,8 +46,11 @@ public struct SenateFetcher: Sendable {
         for (offset, row) in rows.enumerated() {
             stats.filingsProcessed += 1
             let (memberID, bioguide) = resolveMember(row, servingInOrAfter: servingYear)
+            // Use the crosswalk's common name on both the member record and every trade,
+            // falling back to the eFD name when the filer did not resolve.
+            let displayName = canonicalName(bioguide) ?? row.fullName
             let ref = SenateFilingRef(
-                uuid: row.uuid, memberName: row.fullName, memberID: memberID,
+                uuid: row.uuid, memberName: displayName, memberID: memberID,
                 filedOn: row.filedOn, isPaper: row.isPaper, isAmendment: row.isAmendment
             )
 
@@ -94,7 +97,7 @@ public struct SenateFetcher: Sendable {
                 trades.append(contentsOf: result.trades)
                 stats.tradesParsed += result.trades.count
                 membersByID[memberID] = Member(
-                    id: memberID, bioguideID: bioguide, name: row.fullName,
+                    id: memberID, bioguideID: bioguide, name: displayName,
                     state: stateFor(bioguide) ?? "", district: nil, chamber: .senate
                 )
             }
@@ -131,6 +134,15 @@ public struct SenateFetcher: Sendable {
     private func stateFor(_ bioguide: String?) -> String? {
         guard let bioguide, let directory else { return nil }
         return directory.entries.first { $0.bioguideID == bioguide }?.state
+    }
+
+    /// "Mitch McConnell" from the crosswalk — its `first` is already the name the member
+    /// goes by, not necessarily the legal forename.
+    private func canonicalName(_ bioguide: String?) -> String? {
+        guard let bioguide, let directory,
+              let e = directory.entries.first(where: { $0.bioguideID == bioguide })
+        else { return nil }
+        return "\(e.first) \(e.last)"
     }
 }
 #endif // SEEDGEN
