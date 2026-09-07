@@ -52,8 +52,9 @@ less than the House's power-traders). Trivial.
 | File | Does | Tested against |
 |---|---|---|
 | `SenatePTRParser.swift` | Electronic PTR HTML table → `[Trade]`. Dependency-free, scoped to the exact template. Reuses `PTRParser.parseAmount`, `CalendarDate`, `DisclosedAmount`. | 4 real report pages + the index JSON in `Tests/…/Fixtures/senate/` |
+| `SenatePaperReport.swift` | Paper report page → ordered `[URL]` of the scanned GIF pages. Locates only; does not parse. | `paper-blumenthal` fixture, `SenatePaperReportTests` |
 | `SenateFilingIndex.swift` | CSRF handshake + paginated DataTables query → `[SenateFilingRow]`. **Build-time only.** | `report-index.json` fixture; `SenateLiveTests` (disabled, run by hand) |
-| `SenateFetcher.swift` | Orchestrator: one session, handshake once, list, then fetch + parse every electronic detail; resolves filers by name within the Senate chamber; collects `ParseStats` in the House `PTRFetcher.Output` shape. Paper filings recorded as missing (OCR pending). | live `seedgen --senate` run |
+| `SenateFetcher.swift` | Orchestrator: one session, handshake once, list, then fetch + parse every electronic detail; resolves filers by name within the Senate chamber; collects `ParseStats` in the House `PTRFetcher.Output` shape. Paper filings fetched for their page count, recorded as incomplete (OCR pending). | live `seedgen --senate` run |
 | `MemberDirectory.resolve(last:first:chamber:)` | Name-only resolution for a source with no state (the eFD search). Answers only when the chamber narrows to one person. | proven live — Coons/McCormick/Boozman → real bioguide IDs |
 
 `seedgen` gained **`--senate`**: fetches Senate PTRs since Jan 1 of the earliest
@@ -66,10 +67,27 @@ end — a limited run produced a 104-row feed (82 Senate rows) with senators res
 
 ## What's left (in order)
 
-1. **Paper PTR OCR** — the paper page embeds `efd-media-public.senate.gov/…/NNN.gif`
-   scanned images. Extract those, download, run through `PTROCR` / Vision, feed the text
-   to a scan parser. Until then, paper Senate filings are counted and shown as missing,
-   exactly like unreadable House scans (~5–10% of Senate PTRs).
+1. **Paper PTR OCR.** Progress so far (branch `senate-paper-groundwork`, 2026-09-07):
+
+   - `SenatePaperReport.imageURLs(fromHTML:)` extracts the `efd-media-public.senate.gov`
+     GIF page URLs from a paper report page, in carousel order. Tested against the
+     `paper-blumenthal` fixture. `SenateFetcher` now fetches the paper page and records
+     the scanned-page count on the filing instead of a bare "not implemented" note.
+   - **Finding — the original plan ("feed the OCR text to `PTRParser`") will not work.**
+     A hand-OCR of a real Blumenthal paper filing shows the Senate paper form is a
+     *column grid*, not a House-style text row: the amount is an `X` in one of ~11
+     bracket columns, the transaction type is a separate Purchase/Sale/Exchange column,
+     and asset + date sit in their own cells. `PTRParser` anchors on "code, two dates, a
+     dollar range" on one line and has nothing to grab here. OCR quality is also rougher
+     (`$50.001`, `Aipha Teknova`, `SiockyTKNO`).
+   - **Remaining work:** a Vision pass over the GIFs that keeps each fragment's bounding
+     box, then a *spatial* parser that reads the marked bracket column by x-position and
+     the type column likewise, with heavy per-field cleanup and a low-confidence flag on
+     every row. Needs several real paper filings checked in as fixtures to develop
+     against. This is its own effort, not a follow-on tweak.
+
+   Until it lands, paper Senate filings are counted and shown as missing, exactly like
+   unreadable House scans (~5–10% of Senate PTRs).
 2. **`Trade.chamber`** (or an app-side `store.member(id:)?.chamber` lookup) + schema
    bump to 3, so the app can filter and tag by chamber. The feed already carries the
    `Member.chamber` needed for the lookup path.
