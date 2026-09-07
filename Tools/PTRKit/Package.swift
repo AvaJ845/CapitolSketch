@@ -19,6 +19,11 @@ let package = Package(
             name: "PTRKit",
             dependencies: [.product(name: "DisclosureKit", package: "DisclosureKit")],
             path: "Sources/PTRKit",
+            // A checked-in copy of the two small `congress-legislators` committee files,
+            // used as an offline floor when neither the network nor a warm cache is
+            // available. The much larger legislator crosswalk (~15 MB, mostly historical)
+            // is deliberately not vendored — it stays fetch-and-cache only.
+            resources: [.copy("ReferenceData")],
             swiftSettings: [.define("SEEDGEN")]
         ),
         .executableTarget(
@@ -32,6 +37,15 @@ let package = Package(
             // own `.define("SEEDGEN", .when(platforms: [.macOS]))` is what compiles the
             // Senate types into the library this links against; this define keeps
             // seedgen's and PTRKit's own sources on the same footing.
+            swiftSettings: [.define("SEEDGEN")]
+        ),
+        .testTarget(
+            name: "PTRKitTests",
+            dependencies: [
+                "PTRKit",
+                .product(name: "DisclosureKit", package: "DisclosureKit"),
+            ],
+            path: "Tests/PTRKitTests",
             swiftSettings: [.define("SEEDGEN")]
         ),
     ]
