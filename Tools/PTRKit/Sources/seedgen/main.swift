@@ -81,6 +81,26 @@ if directory != nil {
     log("WARNING: no member directory. Every member will use a fallback ID.")
 }
 
+// 1b. Public committee assignments, keyed by Bioguide ID, baked into the seed as facts.
+//     Shown on the member's own page only; never matched to a company or a trade.
+let (committeeRoster, committeeReport) = await CommitteeDirectory.load(
+    cacheDirectory: opts.cache, force: opts.force
+)
+for failed in committeeReport.filesFailed {
+    log("WARNING: committee file \(failed) unavailable")
+}
+for bundled in committeeReport.filesFromBundle {
+    log("WARNING: committee file \(bundled) came from the checked-in copy — no network "
+        + "or cache. Committee data may be a Congress old; refresh with a network build.")
+}
+if committeeRoster != nil {
+    log("committee directory: \(committeeReport.membersMapped) members across "
+        + "\(committeeReport.committees) committees from "
+        + committeeReport.filesLoaded.joined(separator: ", "))
+} else {
+    log("WARNING: no committee directory. Seed will ship without committee assignments.")
+}
+
 // 2. The Clerk's index per year, revalidated rather than trusted because it is cached.
 var filings: [FilingIndexRow] = []
 for year in opts.years {
@@ -145,7 +165,24 @@ if let s = senateOutput?.stats {
     stats.filingsYieldingNoTrades += s.filingsYieldingNoTrades
     stats.filingsFailedToFetch += s.filingsFailedToFetch
 }
-let allMembers = output.members + (senateOutput?.members ?? [])
+var allMembers = output.members + (senateOutput?.members ?? [])
+
+// Attach public committee assignments by Bioguide ID. A member the crosswalk did not
+// place keeps `[]` — same fallback as an unresolved Bioguide ID.
+if let roster = committeeRoster?.byBioguide {
+    var mapped = 0
+    var assignments = 0
+    allMembers = allMembers.map { m in
+        guard let bio = m.bioguideID, let names = roster[bio], !names.isEmpty else { return m }
+        mapped += 1
+        assignments += names.count
+        return m.withCommittees(names)
+    }
+    log("committees: \(mapped) members mapped from \(assignments) assignments")
+} else {
+    log("WARNING: committee assignments not applied — none of \(allMembers.count) members have committee data")
+}
+
 stats.tradesParsed = deduped.count
 log("")
 log("─── coverage ───")

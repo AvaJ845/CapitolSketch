@@ -29,6 +29,9 @@ struct DataQualityView: View {
     private var impossibleDateCount: Int {
         trades.filter(\.hasImpossibleDate).count
     }
+    private var membersWithCommittees: Int {
+        store.members.filter { !$0.committees.isEmpty }.count
+    }
 
     private var filingYears: String {
         let years = store.feed.indexYears.sorted()
@@ -61,6 +64,21 @@ struct DataQualityView: View {
                 }
             } header: {
                 Text("The snapshot")
+            }
+
+            Section {
+                statRow("\(membersWithCommittees) of \(store.members.count)",
+                        "Members here with their public committee assignments attached.")
+            } header: {
+                Text("Committee assignments")
+            } footer: {
+                Text("Committee data comes from the open-source congress-legislators "
+                     + "project, compiled into this snapshot when it was built. It reflects "
+                     + "current full-committee membership only. It is missing where a "
+                     + "member could not be matched to that roster, for members who have "
+                     + "since left the House, and for party leaders, who often hold no "
+                     + "committee seat. Committee membership is never compared with any "
+                     + "trade.")
             }
 
             if !countsByYear.isEmpty {

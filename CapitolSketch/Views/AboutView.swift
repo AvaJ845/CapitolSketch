@@ -9,6 +9,10 @@ struct AboutView: View {
     @Environment(AppIconStore.self) private var appIcon
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    /// Screenshot QA only (`-route-dataquality`): push "About this data" on launch. A
+    /// launch argument like `-demo-filing`, so the App Store screenshot set can be shot
+    /// from the same Release build (see AppStore/METADATA.md §6).
+    @State private var routeToDataQuality = false
 
     var body: some View {
         @Bindable var appearance = appearance
@@ -181,6 +185,13 @@ struct AboutView: View {
             .gazetteChrome()
             .navigationTitle("Settings")
             .task { notificationStatus = await AlertService.authorizationStatus() }
+            .navigationDestination(isPresented: $routeToDataQuality) { DataQualityView() }
+            .task {
+                if ProcessInfo.processInfo.arguments.contains("-route-dataquality") {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    routeToDataQuality = true
+                }
+            }
         }
     }
 

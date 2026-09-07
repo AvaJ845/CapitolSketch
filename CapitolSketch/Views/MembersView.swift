@@ -143,6 +143,22 @@ struct MemberDetailView: View {
                 }
             }
 
+            if !member.committees.isEmpty {
+                Section {
+                    ForEach(member.committees, id: \.self) { committee in
+                        Text(committee)
+                            .font(.callout)
+                            .listRowBackground(Ink.card)
+                    }
+                } header: {
+                    Text("Committees")
+                } footer: {
+                    Text("Full-committee membership, from the public congress-legislators "
+                         + "project as of the date this snapshot was built — not as of any "
+                         + "trade below. It is public and changes between Congresses.")
+                }
+            }
+
             Section {
                 Button {
                     // First watch or follow: treat everything already public as seen, so
