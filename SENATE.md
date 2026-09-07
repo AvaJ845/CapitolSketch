@@ -64,9 +64,10 @@ less than the House's power-traders). Trivial.
 
 `seedgen` gained **`--senate`**: fetches Senate PTRs since Jan 1 of the earliest
 `--years` year, folds them into the House rows before de-dup, sets
-`chambersCovered = [.house, .senate]` and the combined source string. Verified end to
-end — a limited run produced a 104-row feed (82 Senate rows) with senators resolved and
-`documentURL`s pointing at eFD.
+`chambersCovered = [.house, .senate]` and the combined source string. A full
+`--years 2025,2026 --senate` run (2026-09-07): ~2,400 Senate rows from ~36 senators fold
+into the House feed for ~12,600 rows total; ~30 Senate paper filings are counted as
+unreadable (see item 1).
 
 ---
 
@@ -110,27 +111,30 @@ end — a limited run produced a 104-row feed (82 Senate rows) with senators res
      bracket column, upscale hard, template-match the `X`). Research project, uncertain
      payoff, for 5–10% of one chamber.
 
-   Recommendation on the table: **(A), and revisit (B) once Senate is live.** This needs
-   a call — a Fellows re-review of the 2026-08-31 "a partial Senate tab is a North-Star
-   violation" line in light of the fact that full paper coverage is not achievable.
-*Items 2–5 are unblocked only once the item-1 call is made. If it's (A) or (B), the
-"partial Senate tab" line in 5 has to be re-read — full paper transaction coverage is not
-on the table.*
+   **Decision (2026-09-07): (A).** Ship Senate electronic-only; paper PTRs are treated
+   like unreadable House scans — counted, disclosed on the data-quality screen, not in
+   the feed. The "a partial Senate tab is a North-Star violation" line from 2026-08-31 is
+   superseded: full paper *transaction* coverage is not achievable, and the honest bar is
+   the same one the app already holds for the ~12% of House filings it can't read. (B) is
+   a later enhancement.
 
-2. **Chamber on the feed.** No new field and no schema bump — the committee work (schema
-   stayed at 2) showed additive is enough, and chamber is available through
-   `store.member(id: trade.memberID)?.chamber` already. A tiny `TradeStore.chamber(of:)`
-   helper is all the app needs.
-3. **App UI** — a `chamber` facet in `TradeFilter` and a "Senate" / "House" **text** tag
-   in `DisclosureRow`, both shown only when `feed.chambersCovered.count > 1` (same "don't
-   show a one-option control" rule as the year breakdown). Never a colour. Senate-aware
-   "View the source filing" already works — `SenatePTRParser` sets `Trade.documentURL` to
-   the eFD page.
+2. **Chamber on the feed — DONE** (branch `senate-electronic-coverage`). No new field, no
+   schema bump — chamber is read through `TradeStore.chamber(of:)` / `chamberTag(for:)`.
+3. **App UI — DONE.** `chamber` facet in `TradeFilter`; a "House" / "Senate" text tag in
+   `DisclosureRow` / `StandoutRow`, shown only when `feed.chambersCovered.count > 1`;
+   a "Chamber" row + chamber-aware source wording in `DisclosureDetailView`; Settings and
+   data-quality copy adapts to `store.isMultiChamber`. `Trade.documentURL` already points
+   at the eFD page for a Senate filing.
+3b. **Senate name resolution — DONE.** The eFD prints only a name and the crosswalk holds
+   every historical namesake. `MemberDirectory.resolve(last:first:chamber:)` now strips a
+   generational suffix (`, Jr.` / `III` / `IV`, in either name column) and takes a
+   `servingInOrAfter:` year so a long-gone Senate "Kennedy" or "King" is ignored.
+   `Entry.lastTermEndYear` was added for the year filter.
 4. **A full `seedgen --senate` run** into the real `seed-filings.json`, then regenerate
-   the App Store screenshots (the feed's "House · public record" framing changes).
-5. **Ship it as one dated "now covers the full Congress" update** — gated on electronic
-   coverage being complete and paper filings handled honestly per the item-1 call, not on
-   paper transactions being parsed (they can't be).
+   the App Store screenshots (the feed's "House · public record" framing changes). The
+   seed is regenerated on this branch; the screenshot reshoot is still to do.
+5. **Ship it as one dated "now covers the full Congress" update** — an App Store release,
+   the owner's call. Electronic coverage is complete; paper filings are handled per (A).
 
 The on-device `IncrementalRefresher` stays House-only. Senate data refreshes when
 `seedgen` runs and ships in the next app update — acceptable because Senate filings are
