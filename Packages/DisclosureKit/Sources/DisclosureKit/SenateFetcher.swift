@@ -12,8 +12,8 @@ import FoundationNetworking
 ///
 /// **Build-time only** — `seedgen` calls this on a Mac; the app never does. One CSRF
 /// handshake, then the session is reused for the index query and every report fetch.
-/// Electronic reports parse now; paper reports are recorded as missing until the OCR
-/// path (`SENATE.md`, step 2) lands.
+/// Electronic reports parse now; paper reports are recorded as incomplete, with their
+/// scanned-page count, until the OCR + spatial-parser path (`SENATE.md`) lands.
 public struct SenateFetcher: Sendable {
 
     private let directory: MemberDirectory?
@@ -49,9 +49,21 @@ public struct SenateFetcher: Sendable {
             )
 
             if row.isPaper {
+                // Coverage-honest: a paper filing yields no transactions yet. Fetch the
+                // report page anyway to record how many scanned pages it has — the input
+                // the OCR + spatial-parser work in SENATE.md will consume.
                 stats.filingsWithoutText.append(row.uuid)
-                warnings[row.uuid] = ["paper filing — scanned page images; Senate OCR not yet implemented"]
+                var note = "paper filing — scanned page images; not yet parsed"
+                if let url = ref.documentURL,
+                   let (data, response) = try? await session.data(from: url),
+                   (response as? HTTPURLResponse)?.statusCode == 200,
+                   let html = String(data: data, encoding: .utf8) {
+                    let pages = SenatePaperReport.imageURLs(fromHTML: html).count
+                    if pages > 0 { note = "paper filing — \(pages) scanned page(s); not yet parsed" }
+                }
+                warnings[row.uuid] = [note]
                 onProgress?(offset + 1, rows.count, trades.count)
+                try? await Task.sleep(for: politenessDelay)
                 continue
             }
 
