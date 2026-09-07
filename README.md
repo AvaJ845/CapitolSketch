@@ -41,11 +41,17 @@ Shared/                   App Group container (feed + watchlist keys)
 project.yml               xcodegen project definition
 ```
 
-There is no backend and no third-party API. `seedgen` reads primary sources directly,
-and the app ships the result as a bundled JSON snapshot. On device, an incremental
-refresh asks the House Clerk's own public index which filings have appeared since and
-reads only those PDFs. The widget refreshes the same way from `getTimeline` via
-URLSession. There is no `BGTaskScheduler`.
+There is no backend, and the shipped app talks to nothing but the House Clerk. `seedgen`
+reads the trade data straight from primary sources (the Clerk's index and PDFs; the
+Senate eFD when `--senate` is set) and ships the result as a bundled JSON snapshot. Two
+things it cannot get from a primary source — the Bioguide ID crosswalk that turns a
+printed name and seat into a stable identifier, and full-committee assignments — come
+from the community-maintained `unitedstates/congress-legislators` dataset. Both are
+resolved once, at build time, on a Mac; neither dataset ships to the device, and a
+member the crosswalk cannot place degrades gracefully (fallback ID, empty committee
+list). On device, an incremental refresh asks the House Clerk's own public index which
+filings have appeared since and reads only those PDFs. The widget refreshes the same way
+from `getTimeline` via URLSession. There is no `BGTaskScheduler`.
 
 Persisted keys (`watchlistTickers`, `appearance`, `seenRowIDs`, …) are deliberately
 not branded, so a future rename does not force a migration.
@@ -80,9 +86,17 @@ The pipeline:
 1. Download `https://disclosures-clerk.house.gov/public_disc/financial-pdfs/{year}FD.txt`
    and keep the rows with `FilingType == "P"` (Periodic Transaction Report).
 2. Fetch each PTR PDF and extract text with PDFKit.
-3. Parse transaction rows and emit a single JSON feed.
+3. Load the `congress-legislators` crosswalk (`legislators-current`,
+   `legislators-historical`) and resolve each filer to a Bioguide ID.
+4. Load the `congress-legislators` committee files (`committees-current`,
+   `committee-membership-current`) and attach each member's full-committee assignments,
+   by Bioguide ID, as plain names. Never matched against a traded company. A copy of
+   these two files is checked in under `Tools/PTRKit/Sources/PTRKit/ReferenceData/` as an
+   offline floor; a networked build always prefers a fresh fetch.
+5. Parse transaction rows and emit a single JSON feed.
 
-Current snapshot: **10,146 transactions from 128 members** across 2025–2026.
+Current snapshot: **10,197 transactions from 128 members** across 2025–2026, with
+full-committee assignments for 117 of them.
 
 ## Building the app
 

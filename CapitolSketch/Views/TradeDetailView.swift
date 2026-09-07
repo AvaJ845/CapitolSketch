@@ -96,6 +96,11 @@ struct DisclosureDetailView: View {
 
             Section("The filing") {
                 row("Member", trade.memberName)
+                // Committee assignments deliberately do not appear here. Placing a
+                // member's committees next to a specific trade would let the layout imply
+                // a conflict the app does not assert. They live on the member's own page,
+                // as a neutral fact about the person.
+                //
                 // Body weight, same as every other value. Whose account traded is a fact,
                 // not a footnote.
                 row("Account", trade.owner.label)

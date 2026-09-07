@@ -44,6 +44,10 @@ struct RootView: View {
     @State private var selection: Section = .feed
     @State private var routedTrade: Trade?
     @State private var routedTicker: TickerRoute?
+    /// Screenshot QA only (`-demo-member <bioguide>`): pushes a member's detail screen.
+    /// A launch argument like `-demo-filing`, so the App Store screenshot set can be shot
+    /// from the same Release build (see AppStore/METADATA.md §6).
+    @State private var routedMember: Member?
     @State private var splitVisibility: NavigationSplitViewVisibility = .automatic
     /// When the scene last became active and actually ran the refresh + alert scan.
     /// A quick app-switch flurry (Control Center, notification banner, share sheet)
@@ -109,6 +113,21 @@ struct RootView: View {
                 .environment(watchlist)
                 .tint(Ink.accent)
             }
+            .sheet(item: $routedMember) { member in
+                NavigationStack {
+                    MemberDetailView(member: member)
+                        .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
+                        .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
+                        .toolbar {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button("Done") { routedMember = nil }
+                            }
+                        }
+                }
+                .environment(store)
+                .environment(watchlist)
+                .tint(Ink.accent)
+            }
             .task {
                 applyLaunchArguments()
                 applyPendingIntentRoute()
@@ -134,6 +153,7 @@ struct RootView: View {
                 seedWatchlistIfRequested()
                 routeToFiling(notifications.pendingRowID)
                 openDemoFilingIfRequested()
+                openDemoMemberIfRequested()
                 Task { await checkForWatchlistAlerts() }
             }
             .onChange(of: scenePhase) { _, phase in
@@ -316,6 +336,25 @@ struct RootView: View {
               })
         else { return }
         routedTrade = trade
+    }
+
+    /// `-demo-member <bioguide>` pushes a member's detail screen for screenshot QA. With
+    /// no argument it picks the most active member that has committee assignments, so the
+    /// Committees section is on screen.
+    private func openDemoMemberIfRequested() {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-demo-member"), routedMember == nil else { return }
+        let wanted = args.indices.contains(i + 1) ? args[i + 1] : nil
+        let member: Member?
+        if let wanted, !wanted.hasPrefix("-") {
+            member = store.members.first {
+                $0.bioguideID == wanted || $0.id == wanted
+            }
+        } else {
+            member = store.membersByActivity()
+                .first { !$0.member.committees.isEmpty }?.member
+        }
+        routedMember = member
     }
 
     /// Notifies about watchlist hits the user hasn't seen. The Watchlist tab is what
