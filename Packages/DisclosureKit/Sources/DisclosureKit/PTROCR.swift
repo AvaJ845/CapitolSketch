@@ -36,41 +36,12 @@ extension PTRParser {
                     obs.topCandidates(1).first.map { (obs.boundingBox, $0.string) }
                 }
 
-            let lines = reconstructRows(from: fragments)
+            let lines = VisionText.lines(from: fragments)
             if !lines.isEmpty { pageTexts.append(lines.joined(separator: "\n")) }
         }
 
         let joined = pageTexts.joined(separator: "\n")
         return joined.isEmpty ? nil : joined
-    }
-
-    /// Vision returns text fragments, not lines. The form is a table, so fragments that
-    /// share a vertical band are one logical row — rejoining them left to right puts the
-    /// transaction code and its two dates back on one line, which is what the anchor in
-    /// the text parser keys on.
-    private static func reconstructRows(from fragments: [(box: CGRect, text: String)]) -> [String] {
-        guard !fragments.isEmpty else { return [] }
-        // Vision's y-origin is the bottom, so a larger midY is higher on the page.
-        let sorted = fragments.sorted { $0.box.midY > $1.box.midY }
-
-        let tolerance = 0.011  // fraction of page height that still counts as the same row
-        var rows: [[(box: CGRect, text: String)]] = []
-        var bandCenter = sorted[0].box.midY
-
-        for fragment in sorted {
-            if !rows.isEmpty, abs(fragment.box.midY - bandCenter) < tolerance {
-                rows[rows.count - 1].append(fragment)
-            } else {
-                rows.append([fragment])
-                bandCenter = fragment.box.midY
-            }
-        }
-
-        return rows.map { row in
-            row.sorted { $0.box.minX < $1.box.minX }
-                .map(\.text)
-                .joined(separator: "  ")
-        }
     }
 
     /// Rasterises one PDF page to a white-backed bitmap at roughly 200 dpi, which is
