@@ -249,6 +249,30 @@ struct FeedTests {
         #expect(deduplicate(rows).count == 2)
     }
 
+    @Test("An on-device merge keeps a two-chamber seed's coverage and source")
+    func mergeKeepsChamberCoverage() {
+        // A seed built with `seedgen --senate` declares both chambers and the combined
+        // source string. An incremental refresh only ever adds House PTRs, and `merge`
+        // must not quietly narrow the feed back to House.
+        let seed = FeedBuilder.make(
+            trades: [trade(ticker: "BE", type: "ST")],
+            members: [Member(id: "P000197", bioguideID: "P000197", name: "Nancy Pelosi",
+                             state: "CA", district: "11", chamber: .house)],
+            stats: ParseStats(filingsProcessed: 1, tradesParsed: 1),
+            indexYears: [2025, 2026],
+            chambersCovered: [.house, .senate],
+            source: TradeFeed.bothChambersSource
+        )
+
+        let merged = FeedBuilder.merge(
+            seed: seed, newTrades: [trade(ticker: "NVDA", type: "ST")], newMembers: []
+        )
+
+        #expect(merged.chambersCovered == [.house, .senate])
+        #expect(merged.source == TradeFeed.bothChambersSource)
+        #expect(merged.trades.count == 2)
+    }
+
     @Test("De-duplication removes a restated row from an amended filing")
     func dedupRemovesRestatements() {
         let rows = [trade(ticker: "BE", type: "ST"), trade(ticker: "BE", type: "ST")]

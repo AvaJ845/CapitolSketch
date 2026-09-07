@@ -14,6 +14,9 @@ struct DisclosureRow: View {
     let trade: Trade
     /// Member-scoped lists already name the member in the title.
     var showsMember = true
+    /// The filer's chamber. Passed only when the snapshot covers more than one, so a
+    /// House-only feed shows no chamber tag at all.
+    var chamber: Chamber? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -31,7 +34,10 @@ struct DisclosureRow: View {
         .padding(.vertical, isAX ? 6 : 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trade.accessibleSummary)
+        .accessibilityLabel(
+            chamber.map { "\($0.label) filing. \(trade.accessibleSummary)" }
+                ?? trade.accessibleSummary
+        )
     }
 
     @ViewBuilder
@@ -85,19 +91,43 @@ struct DisclosureRow: View {
         if isAX {
             VStack(alignment: .leading, spacing: 4) {
                 if showsMember {
-                    Text(trade.memberName).font(.subheadline.weight(.medium))
+                    HStack(spacing: 6) {
+                        Text(trade.memberName).font(.subheadline.weight(.medium))
+                        chamberTag
+                    }
+                } else {
+                    chamberTag
                 }
                 owner
             }
         } else if showsMember {
             HStack(spacing: 5) {
                 Text(trade.memberName).font(.subheadline.weight(.medium))
+                chamberTag
                 Text("·").foregroundStyle(.tertiary)
                 owner
             }
             .lineLimit(1)
         } else {
-            owner
+            HStack(spacing: 6) {
+                owner
+                chamberTag
+            }
+        }
+    }
+
+    /// A plain "House" / "Senate" text tag. No colour — the word carries the whole
+    /// meaning. Only present when a chamber was passed in.
+    @ViewBuilder
+    private var chamberTag: some View {
+        if let chamber {
+            Text(chamber.label)
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("\(chamber.label) filing")
         }
     }
 
