@@ -266,6 +266,24 @@ final class TradeStore {
         members.first { $0.id == id }
     }
 
+    /// The chamber a trade's filer sits in, via the member record. `nil` if the member is
+    /// not in the feed (an incremental refresh can add a filer the seed never saw).
+    func chamber(of trade: Trade) -> Chamber? {
+        member(id: trade.memberID)?.chamber
+    }
+
+    /// Whether this snapshot covers more than one chamber. Drives whether the app shows a
+    /// chamber tag or filter at all — a one-chamber feed needs neither.
+    var isMultiChamber: Bool {
+        feed.chambersCovered.count > 1
+    }
+
+    /// The chamber to tag a row with: the filer's chamber, but only when the snapshot
+    /// spans more than one. A House-only feed tags nothing.
+    func chamberTag(for trade: Trade) -> Chamber? {
+        isMultiChamber ? chamber(of: trade) : nil
+    }
+
     /// Every ticker in the feed, most disclosed first — powers watchlist search.
     var knownTickers: [(ticker: String, count: Int)] {
         Dictionary(grouping: trades.compactMap(\.ticker), by: { $0.uppercased() })

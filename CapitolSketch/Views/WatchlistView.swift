@@ -66,7 +66,9 @@ struct WatchlistView: View {
                         if !newMatches.isEmpty {
                             Section("New since you last looked") {
                                 ForEach(newMatches) { trade in
-                                    NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                                    NavigationLink(value: trade) {
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                                }
                                         .disclosureRowChrome()
                                 }
                             }
@@ -80,7 +82,9 @@ struct WatchlistView: View {
                                     .listRowBackground(Ink.card)
                             } else {
                                 ForEach(matches.prefix(300)) { trade in
-                                    NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                                    NavigationLink(value: trade) {
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                                }
                                         .disclosureRowChrome()
                                 }
                             }
