@@ -39,10 +39,13 @@ public struct SenateFetcher: Sendable {
         var membersByID: [String: Member] = [:]
         var stats = ParseStats()
         var warnings: [String: [String]] = [:]
+        // eFD prints only a name; the crosswalk holds every historical namesake. A filer
+        // has to have been serving during (or just before) the window this run covers.
+        let servingYear = since.year
 
         for (offset, row) in rows.enumerated() {
             stats.filingsProcessed += 1
-            let (memberID, bioguide) = resolveMember(row)
+            let (memberID, bioguide) = resolveMember(row, servingInOrAfter: servingYear)
             let ref = SenateFilingRef(
                 uuid: row.uuid, memberName: row.fullName, memberID: memberID,
                 filedOn: row.filedOn, isPaper: row.isPaper, isAmendment: row.isAmendment
@@ -110,12 +113,16 @@ public struct SenateFetcher: Sendable {
 
     // MARK: - Identity
 
-    private func resolveMember(_ row: SenateFilingRow) -> (id: String, bioguide: String?) {
+    private func resolveMember(
+        _ row: SenateFilingRow, servingInOrAfter year: Int
+    ) -> (id: String, bioguide: String?) {
         let fallback = MemberDirectory.fallbackID(
             last: row.last, first: row.first, state: "", district: nil
         )
         guard let directory else { return (fallback, nil) }
-        switch directory.resolve(last: row.last, first: row.first, chamber: .senate) {
+        switch directory.resolve(
+            last: row.last, first: row.first, chamber: .senate, servingInOrAfter: year
+        ) {
         case let .resolved(bio): return (bio, bio)
         case .ambiguous, .notFound: return (fallback, nil)
         }

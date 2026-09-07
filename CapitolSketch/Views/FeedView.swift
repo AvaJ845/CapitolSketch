@@ -192,6 +192,12 @@ struct FeedView: View {
                     try? await Task.sleep(for: .milliseconds(350))
                     if path.isEmpty { path.append(StandoutsRoute()) }
                 }
+                // Screenshot QA: open the filter sheet (`-open-filters`), like the other
+                // `-route-*` / `-demo-*` launch arguments.
+                if ProcessInfo.processInfo.arguments.contains("-open-filters") {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    showingFilters = true
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
