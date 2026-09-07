@@ -178,10 +178,17 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
     public let state: String
     public let district: String?
     public let chamber: Chamber
+    /// Full-committee assignments, public data from the `unitedstates/congress-legislators`
+    /// project, resolved by Bioguide ID and baked into the seed at build time. Names only,
+    /// sorted; never matched against a traded company. A member first seen by an on-device
+    /// incremental refresh keeps `[]` — the committee crosswalk does not ship to the
+    /// device — the same fallback as an unresolved `bioguideID`.
+    public let committees: [String]
 
     public init(
         id: String, bioguideID: String?, name: String,
-        state: String, district: String?, chamber: Chamber
+        state: String, district: String?, chamber: Chamber,
+        committees: [String] = []
     ) {
         self.id = id
         self.bioguideID = bioguideID
@@ -189,11 +196,38 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
         self.state = state
         self.district = district
         self.chamber = chamber
+        self.committees = committees
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, bioguideID, name, state, district, chamber, committees
+    }
+
+    /// Custom decode so a feed written before `committees` existed — no such key — still
+    /// decodes, taking the `[]` default. Encoding stays synthesized.
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        bioguideID = try c.decodeIfPresent(String.self, forKey: .bioguideID)
+        name = try c.decode(String.self, forKey: .name)
+        state = try c.decode(String.self, forKey: .state)
+        district = try c.decodeIfPresent(String.self, forKey: .district)
+        chamber = try c.decode(Chamber.self, forKey: .chamber)
+        committees = try c.decodeIfPresent([String].self, forKey: .committees) ?? []
     }
 
     public var seat: String {
         if let d = district, !d.isEmpty { return "\(state)-\(d)" }
         return state
+    }
+
+    /// A copy with committee assignments attached. `Member` is all `let`; seedgen uses
+    /// this to fold in the build-time crosswalk after the fetchers have built the record.
+    public func withCommittees(_ committees: [String]) -> Member {
+        Member(
+            id: id, bioguideID: bioguideID, name: name, state: state,
+            district: district, chamber: chamber, committees: committees
+        )
     }
 }
 
@@ -231,6 +265,10 @@ public struct ParseStats: Codable, Sendable, Hashable {
 }
 
 public struct TradeFeed: Codable, Sendable {
+    /// Still 2. `Member.committees` was added additively: `Member.init(from:)` defaults a
+    /// missing `committees` key to `[]`, so a cache written by an earlier build decodes
+    /// unchanged, and `discardCacheIfBuildChanged` already drops the cache on any build
+    /// bump. A version bump would only force a redundant global cache purge.
     public static let currentSchemaVersion = 2
 
     public let schemaVersion: Int

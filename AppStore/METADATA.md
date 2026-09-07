@@ -239,11 +239,18 @@ edited in here, not bolted on.
 > No account or login is required. The app opens straight into real data from a bundled
 > snapshot and works fully offline.
 >
-> DATA SOURCE. All content is U.S. House Clerk financial disclosure filings
-> (disclosures-clerk.house.gov), which are public domain. There is no third-party API and
-> no backend server. On refresh the app downloads (a) one public tab-separated index file
-> and (b) individual public PDF filings, directly from the House Clerk. No user data of
-> any kind is transmitted; the watchlist never leaves the device.
+> DATA SOURCE. All trade content is U.S. House Clerk financial disclosure filings
+> (disclosures-clerk.house.gov), which are public domain. The running app has no
+> third-party API and no backend server: on refresh it downloads (a) one public
+> tab-separated index file and (b) individual public PDF filings, directly from the House
+> Clerk, and nothing else. No user data of any kind is transmitted; the watchlist never
+> leaves the device.
+>
+> Two reference datasets are compiled into the bundled snapshot at build time (on our
+> Mac, never on device): a name-to-identifier crosswalk and each member's public
+> committee assignments, both from the open-source `unitedstates/congress-legislators`
+> project (github.com/unitedstates/congress-legislators). Committee names are shown as a
+> plain fact on a member's page and are never correlated with any trade.
 >
 > TO TEST ALERTS. Settings → turn on "Notify me about watchlist trades" and grant
 > notification permission. Add a ticker that appears in filings (e.g. NVDA or AAPL) from

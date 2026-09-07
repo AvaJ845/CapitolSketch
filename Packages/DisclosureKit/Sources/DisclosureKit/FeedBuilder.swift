@@ -76,6 +76,11 @@ public enum FeedBuilder {
             members: Array(members.values),
             stats: stats,
             indexYears: seed.indexYears,
+            // Coverage is a property of the seed, not of the incremental run. An on-device
+            // refresh only ever adds House PTRs, so carry the seed's own scope and source
+            // string through rather than letting `make` fall back to its House defaults.
+            chambersCovered: seed.chambersCovered,
+            source: seed.source,
             nameToMemberID: names,
             generatedAt: generatedAt
         )
