@@ -329,12 +329,16 @@ struct RootView: View {
     /// recent trade that has a ticker and a filing description, so the detail screen is
     /// shown full rather than sparse.
     private func openDemoFilingIfRequested() {
-        guard ProcessInfo.processInfo.arguments.contains("-demo-filing"),
-              routedTrade == nil,
-              let trade = store.trades.first(where: {
-                  $0.ticker != nil && !($0.filingDescription ?? "").isEmpty && !$0.hasImpossibleDate
-              })
-        else { return }
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-demo-filing"), routedTrade == nil else { return }
+        // `-demo-filing senate` picks a representative Senate row instead of the newest
+        // overall, for the multi-chamber screenshot set.
+        let wantChamber: Chamber? = args.indices.contains(i + 1)
+            ? Chamber(rawValue: args[i + 1].lowercased()) : nil
+        let trade = store.trades.first {
+            $0.ticker != nil && !($0.filingDescription ?? "").isEmpty && !$0.hasImpossibleDate
+                && (wantChamber == nil || store.chamber(of: $0) == wantChamber)
+        }
         routedTrade = trade
     }
 
