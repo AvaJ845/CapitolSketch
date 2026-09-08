@@ -82,6 +82,32 @@ struct TradeFilter: Equatable {
     }
 }
 
+/// How the feed is ordered. Both orders show the same rows — this is navigation over
+/// data already in the feed, not a filter and not personalisation.
+enum FeedSort: String, CaseIterable, Identifiable {
+    /// The standing order: newest transaction first (`store.trades` as stored).
+    case recent
+    /// Newest disclosure first — what was *just filed*, the time-sensitive fact when
+    /// the reader is checking for anything new.
+    case justDisclosed
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .recent: return "Recent trades"
+        case .justDisclosed: return "Just disclosed"
+        }
+    }
+
+    /// The reader's last choice, or the default. Persisted per-viewer through the App
+    /// Group defaults — the same place the appearance preference lives.
+    static var stored: FeedSort {
+        FeedSort(rawValue: SharedContainer.defaults.string(forKey: SharedContainer.Key.feedSort) ?? "")
+            ?? .recent
+    }
+}
+
 /// Every disclosure in the loaded filing years, newest first.
 ///
 /// This is the whole public data set, in one order, for everybody. Nothing here is
@@ -90,6 +116,7 @@ struct FeedView: View {
     @Environment(TradeStore.self) private var store
 
     @State private var filter = TradeFilter()
+    @State private var sort = FeedSort.stored
     @State private var showingFilters = false
     @State private var path = NavigationPath()
 
@@ -100,12 +127,18 @@ struct FeedView: View {
     }
 
     private var results: [Trade] {
-        filter.apply(
+        let filtered = filter.apply(
             to: store.trades,
             stateOf: { store.member(id: $0)?.state },
             chamberOf: { store.member(id: $0)?.chamber },
             offPatternIDs: offPatternIDs
         )
+        // `store.trades` is already stored in the `.recent` order, and `apply` preserves
+        // it, so only "Just disclosed" needs a re-sort.
+        switch sort {
+        case .recent: return filtered
+        case .justDisclosed: return FeedBuilder.byDisclosureDate(filtered)
+        }
     }
 
     /// Distinct member states present in the feed, for the filter sheet.
@@ -176,6 +209,9 @@ struct FeedView: View {
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
             .navigationDestination(for: StandoutsRoute.self) { _ in StandoutsView() }
             .refreshable { await store.refresh(force: true) }
+            .onChange(of: sort) { _, order in
+                SharedContainer.defaults.set(order.rawValue, forKey: SharedContainer.Key.feedSort)
+            }
             .onChange(of: store.pendingStandoutsRoute) { _, pending in
                 guard pending else { return }
                 if !path.isEmpty { path = NavigationPath() }
@@ -197,6 +233,10 @@ struct FeedView: View {
                 if ProcessInfo.processInfo.arguments.contains("-open-filters") {
                     try? await Task.sleep(for: .milliseconds(400))
                     showingFilters = true
+                }
+                // Screenshot QA: start the feed in the "Just disclosed" order.
+                if ProcessInfo.processInfo.arguments.contains("-feed-just-disclosed") {
+                    sort = .justDisclosed
                 }
             }
             .toolbar {
@@ -247,6 +287,14 @@ struct FeedView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
+
+            Picker("Order", selection: $sort) {
+                ForEach(FeedSort.allCases) { order in
+                    Text(order.label).tag(order)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("Feed order")
 
             NavigationLink(value: StandoutsRoute()) {
                 VStack(alignment: .leading, spacing: 6) {
