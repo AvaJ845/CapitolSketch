@@ -22,7 +22,7 @@ The idea started as a Nancy Pelosi holdings tracker. Two findings redirected it:
   in your own brokerage, and has already rebranded its flagship portfolio to "Pelosi+"
   in anticipation of her exit.
 
-So the app covers the whole House, treats Pelosi as one member among many, and competes
+So the app covers the whole Congress, treats Pelosi as one member among many, and competes
 on something Autopilot does not sell: a read-only, ad-free, no-brokerage-connection view
 with alerts scoped to *your* holdings.
 
@@ -41,9 +41,10 @@ Shared/                   App Group container (feed + watchlist keys)
 project.yml               xcodegen project definition
 ```
 
-There is no backend, and the shipped app talks to nothing but the House Clerk. `seedgen`
-reads the trade data straight from primary sources (the Clerk's index and PDFs; the
-Senate eFD when `--senate` is set) and ships the result as a bundled JSON snapshot. Two
+There is no backend, and the shipped app talks to nothing but the House Clerk (Senate
+data arrives baked into the snapshot; the on-device incremental refresh stays House-only).
+`seedgen` reads the trade data straight from primary sources (the Clerk's index and PDFs;
+the Senate eFD when `--senate` is set) and ships the result as a bundled JSON snapshot. Two
 things it cannot get from a primary source — the Bioguide ID crosswalk that turns a
 printed name and seat into a stable identifier, and full-committee assignments — come
 from the community-maintained `unitedstates/congress-legislators` dataset. Both are
@@ -74,11 +75,12 @@ regenerated daily. It costs a PDF parser to use, which is what DisclosureKit is.
 
 ```bash
 cd Tools/PTRKit
-swift run seedgen --years 2025,2026 --out ../../CapitolSketch/Resources/seed-filings.json
+swift run seedgen --years 2025,2026 --senate --out ../../CapitolSketch/Resources/seed-filings.json
 ```
 
-Options: `--limit N` to process only the N most recent filings, `--concurrency N` for
-parallel downloads (default 6; be polite to the Clerk's servers), `--cache DIR` to reuse
+Options: `--senate` to fold in Senate eFD PTRs (drop it for a House-only snapshot),
+`--limit N` to process only the N most recent filings, `--concurrency N` for parallel
+downloads (default 6; be polite to the Clerk's servers), `--cache DIR` to reuse
 downloaded PDFs across runs, `--pretty` for readable JSON.
 
 The pipeline:
@@ -96,7 +98,12 @@ The pipeline:
    offline floor; a networked build always prefers a fresh fetch.
 5. Parse transaction rows and emit a single JSON feed.
 
-Current snapshot: **~12,600 transactions from 164 members** (House + Senate) across
+With `--senate`, an extra pass reads the Senate eFD portal for electronic PTRs since
+Jan 1 of the earliest `--years` year, resolves each senator by name (the eFD carries no
+identifier), parses the HTML report, and folds the rows into the House feed before
+de-duplication. Paper filings are counted and recorded as unreadable.
+
+Current snapshot: **~12,700 transactions from 164 members** (House + Senate) across
 2025–2026, with party for every resolved member and committee assignments where the
 roster has them.
 
@@ -139,14 +146,22 @@ Quirks it handles, each found by reading real filings:
 Validated against Pelosi's August 21, 2026 filing (`20035143`): all 7 rows parse with
 correct owner, stock-vs-option split, dollar range, and description.
 
+Senate electronic PTRs come from the eFD portal as HTML, not PDF, so they take a separate
+parser (`SenatePTRParser`) but land in the same `Trade` model. Senate *paper* PTRs are
+scanned images with hand-marked amount brackets that OCR cannot read reliably; `seedgen`
+counts them and records the gap, the same as an unreadable House scan (see `SENATE.md`).
+
 ## Known limitations
 
 These are real and worth stating plainly:
 
-- **House only.** Senate disclosures live on a separate portal behind a CSRF-protected
-  session, and are not yet covered.
-- **Some filings yield nothing.** They are scanned paper documents with no extractable
-  text. Those transactions are simply missing, and the count is shown in Settings.
+- **Senate electronic only.** Senate PTRs filed electronically are covered. Senate *paper*
+  PTRs — a hand-marked scan, roughly 5–10% of Senate filings — cannot be machine-read;
+  they are counted and disclosed on the data-quality screen but their transactions are not
+  in the feed, the same treatment as an unreadable House scan.
+- **Some filings yield nothing.** They are scanned paper documents (House or Senate) with
+  no extractable text. Those transactions are simply missing, and the count is shown in
+  Settings.
 - **Everything is stale by design.** Members have 45 days to disclose. Median observed
   lag is 28 days; 16% of filings exceed the 45-day limit. This is inherent to the data,
   not a bug, and the UI says so on every screen.
@@ -169,5 +184,6 @@ one passes, the underlying data supply for this entire category of app disappear
 
 ## Data source and licence
 
-All data comes from US House Clerk financial disclosure filings, which are public
-domain. Every transaction in the app links back to its source PDF.
+All data comes from US House Clerk and US Senate financial disclosure filings, which are
+public domain. Every transaction in the app links back to its source — a House Clerk PDF
+or a Senate eFD page.

@@ -283,32 +283,42 @@ edited in here, not bolted on.
 
 ---
 
-## 6. Screenshot set — v1 (shot 2026-08-31)
+## 6. Screenshot set — v2 (raw shot 2026-09-08)
 
-Raw device captures in `Screenshots/appstore-v1/raw/`; captioned marketing frames in
-`Screenshots/appstore-v1/`. Built from the Release build with the `-tab-*`,
-`-seed-watchlist`, and `-demo-filing` launch arguments. Devices: iPhone 17 Pro Max
-(1320 × 2868, satisfies the 6.9" slot) and iPad Pro 13-inch M5 (2064 × 2752).
+Supersedes v1 (2026-08-31), which was House-only, pre-party-tag, and pre-"What stands
+out" card. v1 raw frames stay in `Screenshots/appstore-v1/` as history.
 
-The four-frame plan in `ASO_PLAYBOOK.md` §4 is superseded by this six-frame set — the
-"three badges" trust panel described there was never built; the real
-Settings → "What this app is" screen carries the same claims and is what ships.
+**Raw device captures:** `Screenshots/appstore-v2/raw/`. Shot from the Debug build with
+the launch arguments `-tab-feed` / `-tab-watchlist` / `-tab-members` / `-tab-settings`,
+`-appearance-light` / `-appearance-dark`, `-seed-watchlist`, `-route-standouts`, and
+`-demo-filing` (bare for a House filing, `-demo-filing senate` for a Senate one). Devices:
+iPhone 17 Pro Max (1320 × 2868, the 6.9" slot) and iPad Pro 13-inch M5 (2064 × 2752).
+
+**Captioned marketing frames:** not yet produced — the raw set is ready for the design
+pass. The App Store submission picks ~6 of the 8 iPhone frames below.
+
+The four-frame plan in `ASO_PLAYBOOK.md` §4 is superseded — the "three badges" trust
+panel it describes was never built; Settings → "What this app is" carries the same
+claims and is what ships.
 
 | # | iPhone frame | Caption | Real content shown |
 | --- | --- | --- | --- |
-| 1 | Feed | "Every trade the U.S. House discloses" | 10,146 real transactions, real members, range bars, "disclosed N days later" |
-| 2 | Watchlist | "Told when they trade a ticker you hold" | Seeded chips (AAPL/BE/MSFT/NVDA), 377 real matches |
-| 3 | Disclosure detail | "Every number links back to the filing" | The prominent "View the source filing" action + "transcribed from the source PDF" note |
-| 4 | Feed (dark) | "Ranges only. Every row dated." | Dark mode, same real feed, range + lag visible |
-| 5 | Settings | "Free. No account. No ads. No tracking." | Appearance toggle, the three-icon picker, "Private by default" copy |
-| 6 | Members | "The whole House, in one plain feed" | 128 members, seats, disclosed-trade counts |
+| 1 | Feed | "Every trade Congress discloses" | 12,702 real transactions, House **and** Senate rows, party ("D"/"R") + chamber tags, the "What stands out" card |
+| 2 | Watchlist | "Told when they trade a ticker you hold" | Seeded chips (AAPL/BE/MSFT/NVDA), a followed member (Pelosi), 499 real matches |
+| 3 | Disclosure detail — House | "Every number links back to the filing" | "View the source filing" action + "transcribed from the source PDF — US House Clerk" note; Party + Chamber rows |
+| 4 | Disclosure detail — Senate | "House and Senate, one standard" | Same layout, "transcribed from the source page — US Senate eFD"; proves the Senate coverage is real |
+| 5 | Feed (dark) | "Ranges only. Every row dated." | Dark mode, same real feed, range + lag visible |
+| 6 | Settings | "Free. No account. No ads. No tracking." | Appearance toggle, three-icon picker, "House & Senate · public record", "Private by default" copy |
+| 7 | Members | "The whole Congress, in one plain feed" | 164 members, party · chamber · seat, disclosed-trade counts |
+| 8 | What stands out | "The patterns in this snapshot, stated plainly" | Headline (481 late / 17 top-bracket) + "Biggest trades" with a Senate row visible |
 
 | # | iPad frame | Caption |
 | --- | --- | --- |
-| 1 | Feed (sidebar) | "Every trade the U.S. House discloses" |
-| 2 | Watchlist | "Told when they trade a ticker you hold" |
-| 3 | Members | "The whole House, in one plain feed" |
+| 1 | Feed | "Every trade Congress discloses" |
+| 2 | Members | "The whole Congress, in one plain feed" |
+| 3 | Watchlist | "Told when they trade a ticker you hold" |
 | 4 | Settings | "Free. No account. No ads. No tracking." |
+| 5 | What stands out | "The patterns in this snapshot, stated plainly" |
 
 Reshoot trigger: any change to the range rendering, the disclosure-lag wording, the
-Settings claims, or the app icon.
+Settings claims, the party/chamber tags, the "What stands out" card, or the app icon.
