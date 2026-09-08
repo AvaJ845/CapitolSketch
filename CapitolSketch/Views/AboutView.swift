@@ -170,6 +170,21 @@ struct AboutView: View {
                 } header: {
                     Text("Known gaps")
                 }
+
+                Section {
+                    HStack {
+                        Text("Version").foregroundStyle(.secondary)
+                        Spacer()
+                        Text(Self.appVersion).monospacedDigit()
+                    }
+                    .font(.callout)
+                    .listRowBackground(Ink.card)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("App version \(Self.appVersion)")
+                } footer: {
+                    Text("The app version is separate from the data — how old the filings "
+                         + "are is on \u{201C}About this data.\u{201D}")
+                }
             }
             .listStyle(.insetGrouped)
             .gazetteChrome()
@@ -183,6 +198,15 @@ struct AboutView: View {
                 }
             }
         }
+    }
+
+    /// "1.1.0 (2)" — the marketing version and the build, straight from the bundle so it
+    /// can never drift from what was actually shipped.
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return build == short ? short : "\(short) (\(build))"
     }
 
     /// The "Known gaps" copy adapts to what the snapshot covers. A House-only build reads

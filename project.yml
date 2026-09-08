@@ -51,8 +51,8 @@ targets:
       base:
         PRODUCT_NAME: CapitolSketch
         PRODUCT_BUNDLE_IDENTIFIER: com.avaresearch.capitolsketch
-        MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.1.0"
+        CURRENT_PROJECT_VERSION: "2"
 
         # Icon Composer icons in CapitolSketch/Resources/. The primary is a single
         # multilayer .icon (system renders Default/Dark/Mono/Tinted); the alternates are
@@ -143,8 +143,8 @@ targets:
       base:
         PRODUCT_NAME: CapitolSketchWidget
         PRODUCT_BUNDLE_IDENTIFIER: com.avaresearch.capitolsketch.widget
-        MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.1.0"
+        CURRENT_PROJECT_VERSION: "2"
 
         SDKROOT: iphoneos
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
