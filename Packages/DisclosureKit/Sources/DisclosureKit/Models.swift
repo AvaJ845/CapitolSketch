@@ -1,7 +1,8 @@
 import Foundation
 
-public enum Chamber: String, Codable, Sendable {
+public enum Chamber: String, Codable, Sendable, CaseIterable, Identifiable {
     case house, senate
+    public var id: String { rawValue }
     public var label: String { self == .house ? "House" : "Senate" }
 }
 

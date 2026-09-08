@@ -16,6 +16,20 @@ struct DisclosureDetailView: View {
 
     private var filingRowCount: Int { store.trades(inFiling: trade.filingID).count }
 
+    /// The filer's chamber, when the snapshot spans more than one. Drives the source
+    /// wording (House Clerk PDF vs. Senate eFD page) and the "Chamber" row.
+    private var chamber: Chamber? { store.chamberTag(for: trade) }
+
+    /// "US House Clerk" / "US Senate eFD" — the body that publishes this filing.
+    private var sourceName: String {
+        (store.chamber(of: trade) == .senate) ? "US Senate eFD" : "US House Clerk"
+    }
+
+    /// The Senate publishes the electronic report as a web page, the House as a PDF.
+    private var sourceMedium: String {
+        (store.chamber(of: trade) == .senate) ? "source page" : "source PDF"
+    }
+
     /// The ticker and the buy/sell badge. Side by side normally; stacked once Dynamic
     /// Type reaches the accessibility sizes, where the two together overflow the card
     /// and the badge's capsule distorts — the same treatment `DisclosureRow` gives them.
@@ -77,7 +91,8 @@ struct DisclosureDetailView: View {
                     ShareLink(
                         item: url,
                         subject: Text("\(trade.memberName) — \(trade.displaySymbol) disclosure"),
-                        message: Text("US House Periodic Transaction Report, filing \(trade.filingID)")
+                        message: Text("\(store.chamber(of: trade) == .senate ? "US Senate" : "US House") "
+                                      + "Periodic Transaction Report, filing \(trade.filingID)")
                     ) {
                         HStack(spacing: 10) {
                             Image(systemName: "square.and.arrow.up")
@@ -89,13 +104,16 @@ struct DisclosureDetailView: View {
                     .listRowBackground(Ink.card)
                 }
             } footer: {
-                Text("Every field below is transcribed from the source PDF — US House Clerk, "
+                Text("Every field below is transcribed from the \(sourceMedium) — \(sourceName), "
                      + "filing \(trade.filingID), public domain. Check anything that matters "
                      + "against it.")
             }
 
             Section("The filing") {
                 row("Member", trade.memberName)
+                if let chamber {
+                    row("Chamber", chamber.label)
+                }
                 // Committee assignments deliberately do not appear here. Placing a
                 // member's committees next to a specific trade would let the layout imply
                 // a conflict the app does not assert. They live on the member's own page,
@@ -276,7 +294,9 @@ struct TickerDetailView: View {
                         .listRowBackground(Ink.card)
                 } else {
                     ForEach(trades.prefix(300)) { trade in
-                        NavigationLink(value: trade) { DisclosureRow(trade: trade) }
+                        NavigationLink(value: trade) {
+                            DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                        }
                             .disclosureRowChrome()
                     }
                 }

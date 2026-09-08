@@ -39,12 +39,18 @@ public struct SenateFetcher: Sendable {
         var membersByID: [String: Member] = [:]
         var stats = ParseStats()
         var warnings: [String: [String]] = [:]
+        // eFD prints only a name; the crosswalk holds every historical namesake. A filer
+        // has to have been serving during (or just before) the window this run covers.
+        let servingYear = since.year
 
         for (offset, row) in rows.enumerated() {
             stats.filingsProcessed += 1
-            let (memberID, bioguide) = resolveMember(row)
+            let (memberID, bioguide) = resolveMember(row, servingInOrAfter: servingYear)
+            // Use the crosswalk's common name on both the member record and every trade,
+            // falling back to the eFD name when the filer did not resolve.
+            let displayName = canonicalName(bioguide) ?? row.fullName
             let ref = SenateFilingRef(
-                uuid: row.uuid, memberName: row.fullName, memberID: memberID,
+                uuid: row.uuid, memberName: displayName, memberID: memberID,
                 filedOn: row.filedOn, isPaper: row.isPaper, isAmendment: row.isAmendment
             )
 
@@ -91,7 +97,7 @@ public struct SenateFetcher: Sendable {
                 trades.append(contentsOf: result.trades)
                 stats.tradesParsed += result.trades.count
                 membersByID[memberID] = Member(
-                    id: memberID, bioguideID: bioguide, name: row.fullName,
+                    id: memberID, bioguideID: bioguide, name: displayName,
                     state: stateFor(bioguide) ?? "", district: nil, chamber: .senate
                 )
             }
@@ -110,12 +116,16 @@ public struct SenateFetcher: Sendable {
 
     // MARK: - Identity
 
-    private func resolveMember(_ row: SenateFilingRow) -> (id: String, bioguide: String?) {
+    private func resolveMember(
+        _ row: SenateFilingRow, servingInOrAfter year: Int
+    ) -> (id: String, bioguide: String?) {
         let fallback = MemberDirectory.fallbackID(
             last: row.last, first: row.first, state: "", district: nil
         )
         guard let directory else { return (fallback, nil) }
-        switch directory.resolve(last: row.last, first: row.first, chamber: .senate) {
+        switch directory.resolve(
+            last: row.last, first: row.first, chamber: .senate, servingInOrAfter: year
+        ) {
         case let .resolved(bio): return (bio, bio)
         case .ambiguous, .notFound: return (fallback, nil)
         }
@@ -124,6 +134,15 @@ public struct SenateFetcher: Sendable {
     private func stateFor(_ bioguide: String?) -> String? {
         guard let bioguide, let directory else { return nil }
         return directory.entries.first { $0.bioguideID == bioguide }?.state
+    }
+
+    /// "Mitch McConnell" from the crosswalk — its `first` is already the name the member
+    /// goes by, not necessarily the legal forename.
+    private func canonicalName(_ bioguide: String?) -> String? {
+        guard let bioguide, let directory,
+              let e = directory.entries.first(where: { $0.bioguideID == bioguide })
+        else { return nil }
+        return "\(e.first) \(e.last)"
     }
 }
 #endif // SEEDGEN

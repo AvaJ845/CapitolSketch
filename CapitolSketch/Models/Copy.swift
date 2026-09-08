@@ -36,7 +36,7 @@ enum Copy {
             id: "private",
             symbol: "lock.shield",
             title: "Private by default",
-            body: "No account, no sign-in, no ads, no analytics. Your holdings list never leaves your phone. The app downloads one public file of House disclosures — the same file for everyone."
+            body: "No account, no sign-in, no ads, no analytics. Your holdings list never leaves your phone. The app downloads one public snapshot of disclosures — the same file for everyone."
         ),
         Principle(
             id: "history",
