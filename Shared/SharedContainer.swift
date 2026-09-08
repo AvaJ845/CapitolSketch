@@ -40,6 +40,10 @@ enum SharedContainer {
         /// time it is frontmost: `"watchlist"`, `"refresh"`, or `"ticker:SYMBOL"`. Set
         /// by an intent, consumed and cleared by `RootView`. Device-local; never sent.
         static let pendingRoute = "pendingIntentRoute"
+        /// Which order the main feed is shown in — the standing transaction-date order,
+        /// or "just disclosed" (newest filing date first). A view preference, not data:
+        /// it only reorders rows the reader already holds. Device-local, never sent.
+        static let feedSort = "feedSortOrder"
     }
 
     // MARK: - Watchlist writes shared with a not-running app and the widget

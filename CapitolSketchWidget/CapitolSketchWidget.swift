@@ -22,8 +22,8 @@ struct CapitolSketchWidget: Widget {
             DisclosureWidgetView(entry: entry)
                 .containerBackground(Ink.canvas, for: .widget)
         }
-        .configurationDisplayName("House disclosures")
-        .description("Latest House stock-trade disclosures, hits on tickers you watch and members you follow, or one ticker.")
+        .configurationDisplayName("Congress disclosures")
+        .description("Latest Congress stock-trade disclosures, hits on tickers you watch and members you follow, or one ticker.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
@@ -39,6 +39,27 @@ struct DisclosureEntry: TimelineEntry {
     let trades: [Trade]
     let generatedAt: Date?
     let watchlistEmpty: Bool
+    /// The chambers the loaded snapshot covers. Drives the widget's "House" vs
+    /// "Congress" wording and whether a per-row chamber tag is shown at all — the same
+    /// call `TradeStore.isMultiChamber` makes in the app.
+    var chambersCovered: [Chamber] = [.house]
+    /// Filer chamber by member ID, for the row tag. Only read when the snapshot spans
+    /// more than one chamber. Built from the feed's members here because the app's
+    /// `TradeStore.chamberTag(for:)` is app-target only.
+    var memberChambers: [String: Chamber] = [:]
+
+    var isMultiChamber: Bool { chambersCovered.count > 1 }
+
+    /// The noun for the snapshot's filings: "House" while the feed is House-only,
+    /// "Congress" once it also carries the Senate.
+    var chamberNoun: String { isMultiChamber ? "Congress" : "House" }
+
+    /// The plain "House" / "Senate" tag for a row, or `nil` when the snapshot is
+    /// single-chamber (nothing to disambiguate) or the filer is not in the feed.
+    func chamberTag(for trade: Trade) -> String? {
+        guard isMultiChamber else { return nil }
+        return memberChambers[trade.memberID]?.label
+    }
 }
 
 struct Provider: AppIntentTimelineProvider {
@@ -94,11 +115,16 @@ struct Provider: AppIntentTimelineProvider {
         }
 
         let generated = feed.generatedAt == .distantPast ? nil : feed.generatedAt
+        let memberChambers = Dictionary(
+            feed.members.map { ($0.id, $0.chamber) }, uniquingKeysWith: { first, _ in first }
+        )
         return DisclosureEntry(
             date: Date(),
             trades: rows,
             generatedAt: generated,
-            watchlistEmpty: watchlistEmpty
+            watchlistEmpty: watchlistEmpty,
+            chambersCovered: feed.chambersCovered,
+            memberChambers: memberChambers
         )
     }
 
@@ -177,7 +203,7 @@ struct DisclosureWidgetView: View {
     }
 
     private var inlineText: String {
-        guard let trade = lead else { return "No House filings yet" }
+        guard let trade = lead else { return "No \(entry.chamberNoun) filings yet" }
         return "\(trade.memberName) · \(trade.txType.directionLabel) \(trade.displaySymbol)"
     }
 
@@ -202,14 +228,14 @@ struct DisclosureWidgetView: View {
                 Text("\(trade.txType.directionLabel) \(trade.displaySymbol)")
                     .font(.headline)
                     .lineLimit(1)
-                Text(trade.memberName)
+                Text(entry.chamberTag(for: trade).map { "\(trade.memberName) · \($0)" } ?? trade.memberName)
                     .font(.caption)
                     .lineLimit(1)
                 Text(trade.amount.label)
                     .font(.caption2)
                     .lineLimit(1)
             } else {
-                Text("No House filings yet")
+                Text("No \(entry.chamberNoun) filings yet")
                     .font(.caption)
             }
         }
@@ -233,6 +259,11 @@ struct DisclosureWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if let tag = entry.chamberTag(for: trade) {
+                    Text(tag)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             } else {
                 Text(emptyMessage)
                     .font(.caption)
@@ -246,7 +277,7 @@ struct DisclosureWidgetView: View {
     private var mediumHome: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(entry.watchlistEmpty ? "Latest House filings" : "Watchlist hits")
+                Text(entry.watchlistEmpty ? "Latest \(entry.chamberNoun) filings" : "Watchlist hits")
                     .font(.caption.weight(.semibold))
                 Spacer()
                 ageLine
@@ -267,7 +298,7 @@ struct DisclosureWidgetView: View {
                                 .font(.subheadline.weight(.semibold))
                                 .frame(width: 52, alignment: .leading)
                                 .lineLimit(1)
-                            Text(trade.memberName)
+                            Text(entry.chamberTag(for: trade).map { "\(trade.memberName) · \($0)" } ?? trade.memberName)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -286,7 +317,7 @@ struct DisclosureWidgetView: View {
 
     private var emptyMessage: String {
         if entry.watchlistEmpty {
-            return "Open the app to load House filings."
+            return "Open the app to load \(entry.chamberNoun) filings."
         }
         return "No watched ticker has a disclosure yet."
     }
