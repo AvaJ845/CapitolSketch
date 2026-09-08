@@ -29,7 +29,9 @@ struct MembersView: View {
                             memberRow(row)
                             .accessibilityElement(children: .ignore)
                             .accessibilityLabel(
-                                "\(row.member.name), \(row.member.chamber.label) \(row.member.seat), "
+                                "\(row.member.name), "
+                                + (row.member.party == .unknown ? "" : "\(row.member.party.label), ")
+                                + "\(row.member.chamber.label) \(row.member.seat), "
                                 + "\(row.count) disclosed trade\(row.count == 1 ? "" : "s")"
                             )
                         }
@@ -57,7 +59,10 @@ struct MembersView: View {
     @ViewBuilder
     private func memberRow(_ row: (member: Member, count: Int)) -> some View {
         let name = Text(row.member.name).font(.body.weight(.medium))
-        let seat = Text("\(row.member.chamber.label) · \(row.member.seat)")
+        let seatText = [row.member.party.short, row.member.chamber.label, row.member.seat]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        let seat = Text(seatText)
             .font(.caption)
             .foregroundStyle(.secondary)
         let count = Text("\(row.count)")
@@ -113,8 +118,25 @@ struct MemberDetailView: View {
         return Array(ranked.prefix(8))
     }
 
+    /// "Democrat · House · CA-31", skipping any part that is unknown.
+    private var identityLine: String {
+        [member.party == .unknown ? "" : member.party.label, member.chamber.label, member.seat]
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
     var body: some View {
         List {
+            Section {
+                Text(identityLine)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .accessibilityLabel(identityLine)
+            }
+
             Section {
                 StatStrip(items: [
                     ("Trades", "\(trades.count)"),

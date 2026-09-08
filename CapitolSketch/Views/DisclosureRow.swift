@@ -17,6 +17,8 @@ struct DisclosureRow: View {
     /// The filer's chamber. Passed only when the snapshot covers more than one, so a
     /// House-only feed shows no chamber tag at all.
     var chamber: Chamber? = nil
+    /// The filer's party. Shown whenever it is known — a plain fact like the seat.
+    var party: Party? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -34,10 +36,14 @@ struct DisclosureRow: View {
         .padding(.vertical, isAX ? 6 : 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            chamber.map { "\($0.label) filing. \(trade.accessibleSummary)" }
-                ?? trade.accessibleSummary
-        )
+        .accessibilityLabel(accessibleLabel)
+    }
+
+    private var accessibleLabel: String {
+        var prefix = ""
+        if let party, !party.short.isEmpty { prefix += "\(party.label). " }
+        if let chamber { prefix += "\(chamber.label) filing. " }
+        return prefix + trade.accessibleSummary
     }
 
     @ViewBuilder
@@ -93,17 +99,17 @@ struct DisclosureRow: View {
                 if showsMember {
                     HStack(spacing: 6) {
                         Text(trade.memberName).font(.subheadline.weight(.medium))
-                        chamberTag
+                        memberTags
                     }
                 } else {
-                    chamberTag
+                    memberTags
                 }
                 owner
             }
         } else if showsMember {
             HStack(spacing: 5) {
                 Text(trade.memberName).font(.subheadline.weight(.medium))
-                chamberTag
+                memberTags
                 Text("·").foregroundStyle(.tertiary)
                 owner
             }
@@ -111,24 +117,34 @@ struct DisclosureRow: View {
         } else {
             HStack(spacing: 6) {
                 owner
-                chamberTag
+                memberTags
             }
         }
     }
 
-    /// A plain "House" / "Senate" text tag. No colour — the word carries the whole
-    /// meaning. Only present when a chamber was passed in.
+    /// Plain "D" / "R" / "I" and "House" / "Senate" text tags. No colour — the letter and
+    /// the word each carry the whole meaning. Party shows whenever known; chamber only
+    /// when the snapshot spans both.
     @ViewBuilder
-    private var chamberTag: some View {
-        if let chamber {
-            Text(chamber.label)
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("\(chamber.label) filing")
+    private var memberTags: some View {
+        HStack(spacing: 4) {
+            if let party, !party.short.isEmpty {
+                tagPill(party.short, a11y: party.label)
+            }
+            if let chamber {
+                tagPill(chamber.label, a11y: "\(chamber.label) filing")
+            }
         }
+    }
+
+    private func tagPill(_ text: String, a11y: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .foregroundStyle(.secondary)
+            .accessibilityLabel(a11y)
     }
 
     private var timing: some View {

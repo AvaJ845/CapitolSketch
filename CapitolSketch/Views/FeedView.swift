@@ -150,7 +150,7 @@ struct FeedView: View {
                         Section {
                             ForEach(results.prefix(400)) { trade in
                                 NavigationLink(value: trade) {
-                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                                 }
                                 .disclosureRowChrome()
                             }
@@ -223,6 +223,13 @@ struct FeedView: View {
         }
     }
 
+    private var standoutCardLabel: String {
+        guard let h = store.standoutHeadline else {
+            return "What stands out. The largest brackets, latest filings, and most widely traded stocks."
+        }
+        return "What stands out. " + h.lead + (h.supporting.map { " " + $0 } ?? "")
+    }
+
     private var masthead: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
@@ -245,24 +252,44 @@ struct FeedView: View {
             .accessibilityElement(children: .combine)
 
             NavigationLink(value: StandoutsRoute()) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Image(systemName: "rectangle.stack")
-                        .imageScale(.medium)
-                    Text("Standouts in this snapshot")
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text("What stands out")
+                            .font(.subheadline.weight(.semibold))
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .foregroundStyle(Ink.accent)
+
+                    if let headline = store.standoutHeadline {
+                        Text(headline.lead)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let supporting = headline.supporting {
+                            Text(supporting)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    } else {
+                        Text("The largest brackets, the latest filings, and the most widely traded stocks in this snapshot.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Ink.accent)
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Ink.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .navigationLinkIndicatorVisibility(.hidden)
-            .accessibilityLabel("Standouts in this snapshot")
-            .accessibilityHint("The edges of this snapshot — biggest brackets, latest filings, most widely held")
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(standoutCardLabel)
+            .accessibilityHint("Opens what stands out in this snapshot")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
