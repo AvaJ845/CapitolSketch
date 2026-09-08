@@ -220,6 +220,22 @@ struct StandoutsTests {
         #expect(Standouts.headline(in: makeFeed([])) == nil)
     }
 
+    @Test("The describe-the-snapshot fallback counts trading members and omits an empty year span")
+    func headlineFallbackCountsTradersAndHandlesNoYears() {
+        // Two members trade; a third member is carried in the feed with no trades (an
+        // incremental feed can retain one whose rows have all aged out). indexYears is
+        // empty — the sentence must not read "across 0".
+        let feed = FeedBuilder.make(
+            trades: [mk("t1", member: "a", ticker: "AAA"), mk("t2", member: "b", ticker: "BBB")],
+            members: ["a", "b", "c"].map {
+                Member(id: $0, bioguideID: $0, name: $0, state: "CA", district: "1", chamber: .house)
+            },
+            stats: ParseStats(), indexYears: []
+        )
+        let h = try! #require(Standouts.headline(in: feed))
+        #expect(h.lead == "2 members disclosed 2 trades.")
+    }
+
     // MARK: - Determinism
 
     @Test("byCategory is deterministic for a given feed")

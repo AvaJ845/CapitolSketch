@@ -59,6 +59,17 @@ public struct StandoutHeadline: Sendable, Equatable {
         self.lead = lead
         self.supporting = supporting
     }
+
+    /// The lead and supporting facts as one string — for a VoiceOver label or any other
+    /// single-run context. On screen the two are rendered as separate lines.
+    public var combined: String {
+        lead + (supporting.map { " " + $0 } ?? "")
+    }
+
+    /// Stands in for a headline when the snapshot is too small to have produced one —
+    /// `headline(in:)` returns `nil` only in that case.
+    public static let placeholder =
+        "The largest brackets, the latest filings, and the most widely traded stocks in this snapshot."
 }
 
 public enum Standouts {
@@ -68,12 +79,20 @@ public enum Standouts {
     /// One or two plain-language facts about the snapshot, favouring a *pattern* (a count)
     /// over a single outlier, since the worst single row is often a mistyped year. `nil`
     /// only for an empty or tiny snapshot.
-    public static func headline(in feed: TradeFeed) -> StandoutHeadline? {
+    ///
+    /// `byCategory` and `widelyHeld` are the lists `byCategory(in:)` / `widelyHeldTickers(in:)`
+    /// already produce; pass them in when they are to hand so this does not recompute them.
+    public static func headline(
+        in feed: TradeFeed,
+        byCategory: [Standout.Category: [Standout]]? = nil,
+        widelyHeld: [WidelyHeldTicker]? = nil
+    ) -> StandoutHeadline? {
         var facts: [String] = []
 
         // How many trades were disclosed more than a year after they happened — a robust
         // count, not the single most extreme lag, and bounded so a mistyped year does not
-        // inflate it.
+        // inflate it. This is its own query (365 days, every row) rather than the deduped
+        // `filedLate` list, so the one Calendar pass it needs is unavoidable here.
         let overAYearLate = feed.trades.filter {
             !$0.hasImpossibleDate
                 && (365 < $0.disclosureLagDays && $0.disclosureLagDays <= plausibleLateCeilingDays)
@@ -83,8 +102,8 @@ public enum Standouts {
                          + "they happened — the STOCK Act allows 45 days.")
         }
 
-        // The form's top brackets ($5M and up).
-        let big = topBracket(in: feed)
+        // The form's top brackets ($5M and up) — reuse the caller's list when given.
+        let big = byCategory?[.topBracket] ?? topBracket(in: feed)
         if big.count >= 3 {
             facts.append("\(big.count) trades landed in the form's top brackets "
                          + "($5,000,000 and up).")
@@ -93,18 +112,27 @@ public enum Standouts {
                          + "\(one.trade.amount.label).")
         }
 
-        // The single most widely traded ticker.
-        if facts.count < 2, let top = widelyHeldTickers(in: feed).first, top.memberCount >= 3 {
-            facts.append("\(top.ticker) appears in \(top.memberCount) members' filings, "
-                         + "more than any other stock.")
+        // The single most widely traded ticker — again reuse the caller's list when given.
+        if facts.count < 2 {
+            let widely = widelyHeld ?? widelyHeldTickers(in: feed)
+            if let top = widely.first, top.memberCount >= 3 {
+                facts.append("\(top.ticker) appears in \(top.memberCount) members' filings, "
+                             + "more than any other stock.")
+            }
         }
 
-        // Nothing stood out — say what the snapshot is.
+        // Nothing stood out — say what the snapshot is. Count the members who actually
+        // traded (an incremental feed can retain a member whose trades have all aged out),
+        // and drop the year span when the feed carries no index years.
         if facts.isEmpty, !feed.trades.isEmpty {
+            let traders = Set(feed.trades.map(\.memberID)).count
+            let base = "\(traders) members disclosed \(feed.trades.count.formatted()) trades"
             let years = feed.indexYears.sorted()
-            let span = years.count > 1 ? "\(years.first!)–\(years.last!)" : "\(years.first ?? 0)"
-            facts.append("\(feed.members.count) members disclosed "
-                         + "\(feed.trades.count.formatted()) trades across \(span).")
+            if let lo = years.first, let hi = years.last {
+                facts.append(lo == hi ? "\(base) across \(lo)." : "\(base) across \(lo)–\(hi).")
+            } else {
+                facts.append("\(base).")
+            }
         }
 
         guard let lead = facts.first else { return nil }

@@ -64,9 +64,13 @@ final class TradeStore {
         standoutsTask = Task { [weak self] in
             let started = Date()
             let computed = await Task.detached(priority: .utility) {
-                (byCategory: Standouts.byCategory(in: snapshot),
-                 widelyHeld: Standouts.widelyHeldTickers(in: snapshot),
-                 headline: Standouts.headline(in: snapshot))
+                let byCategory = Standouts.byCategory(in: snapshot)
+                let widelyHeld = Standouts.widelyHeldTickers(in: snapshot)
+                return (byCategory: byCategory,
+                        widelyHeld: widelyHeld,
+                        headline: Standouts.headline(in: snapshot,
+                                                     byCategory: byCategory,
+                                                     widelyHeld: widelyHeld))
             }.value
             if Task.isCancelled { return }
             guard let self else { return }

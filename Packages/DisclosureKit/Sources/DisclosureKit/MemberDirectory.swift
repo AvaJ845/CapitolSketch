@@ -65,6 +65,9 @@ public struct MemberDirectory: Sendable {
     /// Keyed on the forename and surname run together, so a compound surname matches
     /// regardless of where the two sources decided to split it.
     private var byJoinedNameState: [String: [Entry]] = [:]
+    /// First seat-term seen for each Bioguide ID. Party and the display name are
+    /// per-person, carried identically on every seat, so one entry answers for both.
+    private var byBioguide: [String: Entry] = [:]
     public private(set) var entries: [Entry] = []
 
     public init(entries: [Entry]) {
@@ -74,6 +77,7 @@ public struct MemberDirectory: Sendable {
             byLastState[Self.key(last: e.last, state: e.state), default: []].append(e)
             byJoinedNameState[Self.joinedKey(last: e.last, first: e.first, state: e.state), default: []]
                 .append(e)
+            if byBioguide[e.bioguideID] == nil { byBioguide[e.bioguideID] = e }
             if let nick = e.nickname, !nick.isEmpty {
                 byNameState[Self.key(last: e.last, first: nick, state: e.state), default: []].append(e)
                 byJoinedNameState[Self.joinedKey(last: e.last, first: nick, state: e.state), default: []]
@@ -249,11 +253,14 @@ public struct MemberDirectory: Sendable {
         id.range(of: #"^[A-Z]\d{6}$"#, options: .regularExpression) != nil
     }
 
-    /// Party for a resolved member, from any of their entries (party is per-person here,
-    /// carried on every seat). `.unknown` if the id is not a Bioguide match.
+    /// The stored entry for a Bioguide ID, if the directory has one. Party and the display
+    /// name are per-person, so any of the member's seat-terms answers.
+    func entry(bioguide: String) -> Entry? { byBioguide[bioguide] }
+
+    /// Party for a resolved member. `.unknown` if the id is not a Bioguide match.
     public func party(bioguide: String?) -> Party {
         guard let bioguide else { return .unknown }
-        return entries.first { $0.bioguideID == bioguide }?.party ?? .unknown
+        return byBioguide[bioguide]?.party ?? .unknown
     }
 
     // MARK: - Loading
