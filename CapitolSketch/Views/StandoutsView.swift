@@ -21,32 +21,32 @@ struct StandoutsView: View {
 
         var title: String {
             switch self {
-            case .topBracket: return "Largest brackets"
-            case .filedLate: return "Filed latest"
+            case .topBracket: return "Biggest trades"
+            case .filedLate: return "Disclosed most late"
             case .widelyHeld: return "Traded by the most members"
-            case .newPosition: return "First in a ticker"
-            case .offPattern: return "Off pattern"
-            case .rareTrader: return "Rare traders"
-            case .memberLargest: return "Each member's largest"
+            case .newPosition: return "A member's first trade in a stock"
+            case .offPattern: return "Off the member's usual pattern"
+            case .rareTrader: return "Members who rarely trade"
+            case .memberLargest: return "Each member's biggest"
             }
         }
 
         var footer: String {
             switch self {
             case .topBracket:
-                return "Trades placed in the form's highest dollar brackets. The bracket is the only figure disclosed."
+                return "Trades in the form's highest dollar brackets ($5M and up). The bracket is the only figure the form states."
             case .filedLate:
-                return "Disclosed more than 45 days after the trade — the STOCK Act's limit. Longest gap first."
+                return "Disclosed more than 45 days after the trade — the STOCK Act's limit. One per member, longest gap first."
             case .widelyHeld:
-                return "Tickers in the most members' filings this snapshot — a count of filers, not shares or dollars."
+                return "Stocks in the most members' filings this snapshot — a count of who filed, not of shares or dollars, and a filing can be a sale."
             case .newPosition:
-                return "A member's first disclosed trade in this ticker, disclosed in the last 30 days of this snapshot."
+                return "A member's first disclosed trade in a stock, when that first trade was disclosed in the last 30 days of this snapshot. One per member."
             case .offPattern:
-                return "A single-stock trade by a member whose disclosed history is mostly funds."
+                return "A single-stock trade by a member whose disclosed filings are otherwise almost all funds. One per member."
             case .rareTrader:
-                return "Every disclosed trade by a member who has disclosed three or fewer."
+                return "Every disclosed trade by a member who has disclosed three or fewer in this snapshot."
             case .memberLargest:
-                return "The single largest bracket each member disclosed."
+                return "The single biggest bracket each member disclosed, when it was $250,000 or more."
             }
         }
 
@@ -62,8 +62,14 @@ struct StandoutsView: View {
             }
         }
 
-        /// Most rules cap at 10; the two one-row-per-member rules can afford 15.
-        var cap: Int { (self == .memberLargest || self == .rareTrader) ? 15 : 10 }
+        /// The one-row-per-member rules still represent many members in a longer list, so
+        /// they cap at 15; the rest cap at 10.
+        var cap: Int {
+            switch self {
+            case .filedLate, .newPosition, .offPattern, .memberLargest: return 15
+            case .topBracket, .widelyHeld, .rareTrader: return 10
+            }
+        }
     }
 
     private func standouts(for row: Row) -> [Standout] {
@@ -90,7 +96,7 @@ struct StandoutsView: View {
                 list
             }
         }
-        .navigationTitle("Standouts")
+        .navigationTitle("What stands out")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -122,26 +128,39 @@ struct StandoutsView: View {
 
     private var listBody: some View {
         List {
-            Section {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("The edges of this snapshot — the biggest brackets, the latest "
-                         + "filings, the most widely held. Nothing here is ranked better "
-                         + "or worse.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(Copy.noAdvice)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
+            if let headline = store.standoutHeadline {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(headline.lead)
+                            .font(.headline)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let supporting = headline.supporting {
+                            Text(supporting)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .accessibilityElement(children: .combine)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .accessibilityElement(children: .combine)
             }
 
             ForEach(Row.allCases, id: \.self) { row in
                 section(for: row)
                     .id(row)
+            }
+
+            Section {
+                Text("Every list here is a plain fact about the trades in this snapshot — "
+                     + "nothing is scored or ranked against anything else. \(Copy.noAdvice)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
         .listStyle(.insetGrouped)
@@ -178,7 +197,11 @@ struct StandoutsView: View {
                         NavigationLink {
                             DisclosureDetailView(trade: standout.trade)
                         } label: {
-                            StandoutRow(standout: standout, chamber: store.chamberTag(for: standout.trade))
+                            StandoutRow(
+                                standout: standout,
+                                chamber: store.chamberTag(for: standout.trade),
+                                party: store.partyTag(for: standout.trade)
+                            )
                         }
                         .disclosureRowChrome()
                     }
@@ -202,6 +225,7 @@ struct StandoutsView: View {
 private struct StandoutRow: View {
     let standout: Standout
     var chamber: Chamber? = nil
+    var party: Party? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
     private var isAX: Bool { typeSize.isAccessibilitySize }
@@ -216,6 +240,18 @@ private struct StandoutRow: View {
     /// bracket), so it is dropped when they would say the same thing.
     private var showsAmountLine: Bool { trade.amount.label != standout.reason }
 
+    /// The timing line ("disclosed 603 days later") repeats the number the `filedLate`
+    /// reason chip already states, so it is dropped there.
+    private var showsTimingLine: Bool { standout.category != .filedLate }
+
+    /// "D" then "Senate" — party whenever known, chamber only when passed in.
+    private var tagTexts: [String] {
+        var out: [String] = []
+        if let party, !party.short.isEmpty { out.append(party.short) }
+        if let chamber { out.append(chamber.label) }
+        return out
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: isAX ? 10 : 6) {
             reasonChip
@@ -224,8 +260,8 @@ private struct StandoutRow: View {
                 Text(trade.memberName)
                     .font(.subheadline.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
-                if let chamber {
-                    Text(chamber.label)
+                ForEach(tagTexts, id: \.self) { text in
+                    Text(text)
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -243,18 +279,25 @@ private struct StandoutRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Text(trade.timingSentence)
-                .font(.caption)
-                .foregroundStyle(trade.hasImpossibleDate ? Ink.lag : .secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if showsTimingLine {
+                Text(trade.timingSentence)
+                    .font(.caption)
+                    .foregroundStyle(trade.hasImpossibleDate ? Ink.lag : .secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "\(trade.memberName)\(chamber.map { ", \($0.label)" } ?? ""), "
-            + "\(trade.txType.verb) \(trade.displaySymbol), "
-            + "\(trade.amount.accessibleDescription). Surfaced because: \(standout.reason)"
-        )
+        .accessibilityLabel(a11yLabel)
+    }
+
+    private var a11yLabel: String {
+        var parts: [String] = [standout.reason, trade.memberName]
+        if let party, party != .unknown { parts.append(party.label) }
+        if let chamber { parts.append(chamber.label) }
+        parts.append("\(trade.txType.verb) \(trade.displaySymbol)")
+        parts.append(trade.amount.accessibleDescription)
+        return parts.joined(separator: ". ") + "."
     }
 
     /// The reason, as its own line. A capsule at normal sizes; a wrapping rounded tag once

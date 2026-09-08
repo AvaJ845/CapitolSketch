@@ -30,6 +30,9 @@ final class TradeStore {
     private(set) var standouts: [Standout.Category: [Standout]] = [:]
     /// Tickers in the most members' filings this snapshot.
     private(set) var widelyHeld: [WidelyHeldTicker] = []
+    /// A plain-language headline for the feed's Standouts card — the striking fact that
+    /// tells the reader there's something worth a tap. `nil` for a tiny snapshot.
+    private(set) var standoutHeadline: StandoutHeadline?
     /// True while the first (or a fresh) standouts compute is running off the main actor.
     private(set) var standoutsLoading = false
 
@@ -53,6 +56,7 @@ final class TradeStore {
         guard !snapshot.trades.isEmpty else {
             standouts = [:]
             widelyHeld = []
+            standoutHeadline = nil
             standoutsLoading = false
             return
         }
@@ -60,13 +64,19 @@ final class TradeStore {
         standoutsTask = Task { [weak self] in
             let started = Date()
             let computed = await Task.detached(priority: .utility) {
-                (byCategory: Standouts.byCategory(in: snapshot),
-                 widelyHeld: Standouts.widelyHeldTickers(in: snapshot))
+                let byCategory = Standouts.byCategory(in: snapshot)
+                let widelyHeld = Standouts.widelyHeldTickers(in: snapshot)
+                return (byCategory: byCategory,
+                        widelyHeld: widelyHeld,
+                        headline: Standouts.headline(in: snapshot,
+                                                     byCategory: byCategory,
+                                                     widelyHeld: widelyHeld))
             }.value
             if Task.isCancelled { return }
             guard let self else { return }
             self.standouts = computed.byCategory
             self.widelyHeld = computed.widelyHeld
+            self.standoutHeadline = computed.headline
             self.standoutsLoading = false
             #if DEBUG
             let ms = Int(Date().timeIntervalSince(started) * 1000)
@@ -282,6 +292,12 @@ final class TradeStore {
     /// spans more than one. A House-only feed tags nothing.
     func chamberTag(for trade: Trade) -> Chamber? {
         isMultiChamber ? chamber(of: trade) : nil
+    }
+
+    /// The filer's party, for a row tag. `nil` (nothing rendered) when unknown.
+    func partyTag(for trade: Trade) -> Party? {
+        let p = member(id: trade.memberID)?.party ?? .unknown
+        return p == .unknown ? nil : p
     }
 
     /// Every ticker in the feed, most disclosed first — powers watchlist search.

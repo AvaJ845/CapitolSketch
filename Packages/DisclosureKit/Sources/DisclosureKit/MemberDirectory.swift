@@ -23,11 +23,13 @@ public struct MemberDirectory: Sendable {
         /// resolver ignore a long-dead namesake — there are many Senate "Kennedy"s and
         /// "King"s in the historical file. `9999` when no end date could be read.
         public let lastTermEndYear: Int
+        /// Party as of the member's most recent term.
+        public let party: Party
 
         public init(
             bioguideID: String, last: String, first: String, state: String,
             district: String?, chamber: Chamber, nickname: String? = nil,
-            lastTermEndYear: Int = 9999
+            lastTermEndYear: Int = 9999, party: Party = .unknown
         ) {
             self.bioguideID = bioguideID
             self.last = last
@@ -37,10 +39,11 @@ public struct MemberDirectory: Sendable {
             self.chamber = chamber
             self.nickname = nickname
             self.lastTermEndYear = lastTermEndYear
+            self.party = party
         }
 
         private enum CodingKeys: String, CodingKey {
-            case bioguideID, last, first, state, district, chamber, nickname, lastTermEndYear
+            case bioguideID, last, first, state, district, chamber, nickname, lastTermEndYear, party
         }
 
         public init(from decoder: any Decoder) throws {
@@ -53,6 +56,7 @@ public struct MemberDirectory: Sendable {
             chamber = try c.decode(Chamber.self, forKey: .chamber)
             nickname = try c.decodeIfPresent(String.self, forKey: .nickname)
             lastTermEndYear = try c.decodeIfPresent(Int.self, forKey: .lastTermEndYear) ?? 9999
+            party = try c.decodeIfPresent(Party.self, forKey: .party) ?? .unknown
         }
     }
 
@@ -61,6 +65,9 @@ public struct MemberDirectory: Sendable {
     /// Keyed on the forename and surname run together, so a compound surname matches
     /// regardless of where the two sources decided to split it.
     private var byJoinedNameState: [String: [Entry]] = [:]
+    /// First seat-term seen for each Bioguide ID. Party and the display name are
+    /// per-person, carried identically on every seat, so one entry answers for both.
+    private var byBioguide: [String: Entry] = [:]
     public private(set) var entries: [Entry] = []
 
     public init(entries: [Entry]) {
@@ -70,6 +77,7 @@ public struct MemberDirectory: Sendable {
             byLastState[Self.key(last: e.last, state: e.state), default: []].append(e)
             byJoinedNameState[Self.joinedKey(last: e.last, first: e.first, state: e.state), default: []]
                 .append(e)
+            if byBioguide[e.bioguideID] == nil { byBioguide[e.bioguideID] = e }
             if let nick = e.nickname, !nick.isEmpty {
                 byNameState[Self.key(last: e.last, first: nick, state: e.state), default: []].append(e)
                 byJoinedNameState[Self.joinedKey(last: e.last, first: nick, state: e.state), default: []]
@@ -245,6 +253,16 @@ public struct MemberDirectory: Sendable {
         id.range(of: #"^[A-Z]\d{6}$"#, options: .regularExpression) != nil
     }
 
+    /// The stored entry for a Bioguide ID, if the directory has one. Party and the display
+    /// name are per-person, so any of the member's seat-terms answers.
+    func entry(bioguide: String) -> Entry? { byBioguide[bioguide] }
+
+    /// Party for a resolved member. `.unknown` if the id is not a Bioguide match.
+    public func party(bioguide: String?) -> Party {
+        guard let bioguide else { return .unknown }
+        return byBioguide[bioguide]?.party ?? .unknown
+    }
+
     // MARK: - Loading
 
     /// Decodes the `congress-legislators` project's JSON. Only the fields needed to
@@ -263,6 +281,7 @@ public struct MemberDirectory: Sendable {
                 let state: String?
                 let district: Int?
                 let end: String?
+                let party: String?
             }
             let id: ID
             let name: Name
@@ -289,9 +308,12 @@ public struct MemberDirectory: Sendable {
 
             // The latest year any of this member's terms runs to — used to rule out a
             // long-dead namesake in a name-only match.
-            let lastEndYear = terms
+            let sortedTerms = terms.sorted { ($0.end ?? "") < ($1.end ?? "") }
+            let lastEndYear = sortedTerms
                 .compactMap { $0.end.flatMap { Int($0.prefix(4)) } }
                 .max() ?? 9999
+            // Party as of the most recent term.
+            let party = Party(crosswalk: sortedTerms.last?.party)
 
             // A member can serve several terms and change seat. Index every distinct
             // seat they held so an older filing still resolves, and so the seat number
@@ -304,7 +326,7 @@ public struct MemberDirectory: Sendable {
                 entries.append(Entry(
                     bioguideID: bio, last: last, first: first, state: state,
                     district: t.district.map(String.init), chamber: chamber,
-                    nickname: nickname, lastTermEndYear: lastEndYear
+                    nickname: nickname, lastTermEndYear: lastEndYear, party: party
                 ))
             }
         }
