@@ -47,7 +47,97 @@ public struct WidelyHeldTicker: Identifiable, Sendable, Hashable {
     }
 }
 
+/// A one- or two-line plain-language summary of what stands out in a snapshot — the
+/// thing the feed's entry card shows so the reader knows there's something worth a tap.
+public struct StandoutHeadline: Sendable, Equatable {
+    /// The single most striking fact, as a full sentence.
+    public let lead: String
+    /// A second fact, or `nil` when the snapshot only had one thing worth saying.
+    public let supporting: String?
+
+    public init(lead: String, supporting: String? = nil) {
+        self.lead = lead
+        self.supporting = supporting
+    }
+
+    /// The lead and supporting facts as one string — for a VoiceOver label or any other
+    /// single-run context. On screen the two are rendered as separate lines.
+    public var combined: String {
+        lead + (supporting.map { " " + $0 } ?? "")
+    }
+
+    /// Stands in for a headline when the snapshot is too small to have produced one —
+    /// `headline(in:)` returns `nil` only in that case.
+    public static let placeholder =
+        "The largest brackets, the latest filings, and the most widely traded stocks in this snapshot."
+}
+
 public enum Standouts {
+
+    // MARK: - Headline
+
+    /// One or two plain-language facts about the snapshot, favouring a *pattern* (a count)
+    /// over a single outlier, since the worst single row is often a mistyped year. `nil`
+    /// only for an empty or tiny snapshot.
+    ///
+    /// `byCategory` and `widelyHeld` are the lists `byCategory(in:)` / `widelyHeldTickers(in:)`
+    /// already produce; pass them in when they are to hand so this does not recompute them.
+    public static func headline(
+        in feed: TradeFeed,
+        byCategory: [Standout.Category: [Standout]]? = nil,
+        widelyHeld: [WidelyHeldTicker]? = nil
+    ) -> StandoutHeadline? {
+        var facts: [String] = []
+
+        // How many trades were disclosed more than a year after they happened — a robust
+        // count, not the single most extreme lag, and bounded so a mistyped year does not
+        // inflate it. This is its own query (365 days, every row) rather than the deduped
+        // `filedLate` list, so the one Calendar pass it needs is unavoidable here.
+        let overAYearLate = feed.trades.filter {
+            !$0.hasImpossibleDate
+                && (365 < $0.disclosureLagDays && $0.disclosureLagDays <= plausibleLateCeilingDays)
+        }.count
+        if overAYearLate >= 3 {
+            facts.append("\(overAYearLate) trades were disclosed more than a year after "
+                         + "they happened — the STOCK Act allows 45 days.")
+        }
+
+        // The form's top brackets ($5M and up) — reuse the caller's list when given.
+        let big = byCategory?[.topBracket] ?? topBracket(in: feed)
+        if big.count >= 3 {
+            facts.append("\(big.count) trades landed in the form's top brackets "
+                         + "($5,000,000 and up).")
+        } else if let one = big.first {
+            facts.append("The largest disclosed bracket this snapshot is "
+                         + "\(one.trade.amount.label).")
+        }
+
+        // The single most widely traded ticker — again reuse the caller's list when given.
+        if facts.count < 2 {
+            let widely = widelyHeld ?? widelyHeldTickers(in: feed)
+            if let top = widely.first, top.memberCount >= 3 {
+                facts.append("\(top.ticker) appears in \(top.memberCount) members' filings, "
+                             + "more than any other stock.")
+            }
+        }
+
+        // Nothing stood out — say what the snapshot is. Count the members who actually
+        // traded (an incremental feed can retain a member whose trades have all aged out),
+        // and drop the year span when the feed carries no index years.
+        if facts.isEmpty, !feed.trades.isEmpty {
+            let traders = Set(feed.trades.map(\.memberID)).count
+            let base = "\(traders) members disclosed \(feed.trades.count.formatted()) trades"
+            let years = feed.indexYears.sorted()
+            if let lo = years.first, let hi = years.last {
+                facts.append(lo == hi ? "\(base) across \(lo)." : "\(base) across \(lo)–\(hi).")
+            } else {
+                facts.append("\(base).")
+            }
+        }
+
+        guard let lead = facts.first else { return nil }
+        return StandoutHeadline(lead: lead, supporting: facts.count > 1 ? facts[1] : nil)
+    }
 
     // MARK: - Public entry points
 
@@ -96,9 +186,15 @@ public enum Standouts {
 
     // MARK: - Rule 2 · filedLate
 
-    /// Trades disclosed more than 45 days after the transaction — the STOCK Act's limit —
-    /// excluding rows whose dates are internally inconsistent (a lag that is not a real
-    /// number). Longest gap first.
+    /// A transaction disclosed this many days late is, past this point, almost always a
+    /// mistyped transaction year rather than a real filing — a spouse account opened in
+    /// 2015 disclosed in 2025. Beyond it the row still appears in the plain feed; it is
+    /// just not held up here as a STOCK Act violation.
+    static let plausibleLateCeilingDays = 1200
+
+    /// Trades disclosed between 45 days and ~3.3 years after the transaction — over the
+    /// STOCK Act's 45-day limit, but not so far over that the date is unbelievable.
+    /// Rows with internally inconsistent dates are excluded. Longest gap first.
     public static func filedLate(in feed: TradeFeed) -> [Standout] {
         // `disclosureLagDays` goes through `Calendar`, so it is read once per row here
         // rather than once per sort comparison.
@@ -106,7 +202,7 @@ public enum Standouts {
             .compactMap { t -> (trade: Trade, lag: Int)? in
                 guard !t.hasImpossibleDate else { return nil }
                 let lag = t.disclosureLagDays
-                return lag > 45 ? (t, lag) : nil
+                return (45 < lag && lag <= plausibleLateCeilingDays) ? (t, lag) : nil
             }
             .sorted { a, b in
                 if a.lag != b.lag { return a.lag > b.lag }
@@ -119,6 +215,7 @@ public enum Standouts {
                 Standout(category: .filedLate, trade: $0.trade,
                          reason: "Filed \($0.lag) days late")
             }
+            .onePerMember()
     }
 
     // MARK: - Rule 3 · widelyHeldTickers
@@ -175,7 +272,7 @@ public enum Standouts {
                 reason: "First disclosed \(symbol) trade by this member"
             ))
         }
-        return out.sorted(by: recencyThenID)
+        return out.sorted(by: recencyThenID).onePerMember()
     }
 
     /// Earliest by transaction date, then earliest disclosed, then id.
@@ -200,11 +297,11 @@ public enum Standouts {
             for t in rows where t.ticker != nil && (t.assetType == "ST" || t.isOption) {
                 out.append(Standout(
                     category: .offPattern, trade: t,
-                    reason: "Off this member's usual pattern — mostly funds"
+                    reason: "A single stock — this member's filings are otherwise almost all funds"
                 ))
             }
         }
-        return out.sorted(by: recencyThenID)
+        return out.sorted(by: recencyThenID).onePerMember()
     }
 
     // MARK: - Rule 6 · rareTrader
@@ -250,5 +347,16 @@ public enum Standouts {
             return a.trade.disclosedDate > b.trade.disclosedDate
         }
         return a.trade.id < b.trade.id
+    }
+}
+
+extension Array where Element == Standout {
+    /// Keeps the first row for each member. One representative whose backlog dump fills a
+    /// whole list misrepresents the snapshot — the failure `topBracket` was already
+    /// hardened against. The caller must have ordered the list so each member's most
+    /// notable row comes first.
+    func onePerMember() -> [Standout] {
+        var seen = Set<String>()
+        return filter { seen.insert($0.trade.memberID).inserted }
     }
 }

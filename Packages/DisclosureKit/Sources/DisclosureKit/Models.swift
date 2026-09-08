@@ -6,6 +6,46 @@ public enum Chamber: String, Codable, Sendable, CaseIterable, Identifiable {
     public var label: String { self == .house ? "House" : "Senate" }
 }
 
+/// A member's party, from the `congress-legislators` crosswalk — a plain fact about the
+/// person, like their state. `unknown` when the crosswalk did not place them (a member
+/// first seen by an on-device refresh, or an unresolved filer).
+public enum Party: String, Codable, Sendable, CaseIterable, Identifiable {
+    case democrat, republican, independent, unknown
+
+    public var id: String { rawValue }
+
+    /// The one-letter tag shown in the UI. Empty for `unknown` so nothing is rendered.
+    public var short: String {
+        switch self {
+        case .democrat: return "D"
+        case .republican: return "R"
+        case .independent: return "I"
+        case .unknown: return ""
+        }
+    }
+
+    public var label: String {
+        switch self {
+        case .democrat: return "Democrat"
+        case .republican: return "Republican"
+        case .independent: return "Independent"
+        case .unknown: return "Party unknown"
+        }
+    }
+
+    /// Maps the crosswalk's `terms[].party` string ("Democrat" / "Republican" /
+    /// "Independent" / "Libertarian" / …). Anything that is not one of the two majors is
+    /// filed as `independent` — the form the reader recognises for "neither party".
+    public init(crosswalk raw: String?) {
+        switch raw?.lowercased() {
+        case "democrat", "democratic": self = .democrat
+        case "republican": self = .republican
+        case .some(let s) where !s.isEmpty: self = .independent
+        default: self = .unknown
+        }
+    }
+}
+
 public enum TradeOwner: String, Codable, Sendable, CaseIterable {
     case `self`, spouse, joint, dependent
 
@@ -185,11 +225,14 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
     /// incremental refresh keeps `[]` — the committee crosswalk does not ship to the
     /// device — the same fallback as an unresolved `bioguideID`.
     public let committees: [String]
+    /// Party, from the same crosswalk. A plain attribute like `state`; never aggregated
+    /// or coloured in the UI. `unknown` when the crosswalk did not place the member.
+    public let party: Party
 
     public init(
         id: String, bioguideID: String?, name: String,
         state: String, district: String?, chamber: Chamber,
-        committees: [String] = []
+        committees: [String] = [], party: Party = .unknown
     ) {
         self.id = id
         self.bioguideID = bioguideID
@@ -198,14 +241,15 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
         self.district = district
         self.chamber = chamber
         self.committees = committees
+        self.party = party
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, bioguideID, name, state, district, chamber, committees
+        case id, bioguideID, name, state, district, chamber, committees, party
     }
 
-    /// Custom decode so a feed written before `committees` existed — no such key — still
-    /// decodes, taking the `[]` default. Encoding stays synthesized.
+    /// Custom decode so a feed written before `committees` / `party` existed — no such
+    /// key — still decodes, taking the default. Encoding stays synthesized.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -215,6 +259,7 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
         district = try c.decodeIfPresent(String.self, forKey: .district)
         chamber = try c.decode(Chamber.self, forKey: .chamber)
         committees = try c.decodeIfPresent([String].self, forKey: .committees) ?? []
+        party = try c.decodeIfPresent(Party.self, forKey: .party) ?? .unknown
     }
 
     public var seat: String {
@@ -222,12 +267,14 @@ public struct Member: Codable, Identifiable, Hashable, Sendable {
         return state
     }
 
-    /// A copy with committee assignments attached. `Member` is all `let`; seedgen uses
-    /// this to fold in the build-time crosswalk after the fetchers have built the record.
-    public func withCommittees(_ committees: [String]) -> Member {
+    /// A copy with build-time crosswalk facts attached. `Member` is all `let`; seedgen
+    /// uses this to fold in committees and party after the fetchers built the record.
+    public func with(committees: [String]? = nil, party: Party? = nil) -> Member {
         Member(
             id: id, bioguideID: bioguideID, name: name, state: state,
-            district: district, chamber: chamber, committees: committees
+            district: district, chamber: chamber,
+            committees: committees ?? self.committees,
+            party: party ?? self.party
         )
     }
 }

@@ -111,8 +111,13 @@ struct DisclosureDetailView: View {
 
             Section("The filing") {
                 row("Member", trade.memberName)
-                if let chamber {
-                    row("Chamber", chamber.label)
+                if let member = store.member(id: trade.memberID) {
+                    if member.party != .unknown {
+                        row("Party", member.party.label)
+                    }
+                    if chamber != nil {
+                        row("Chamber", member.chamber.label)
+                    }
                 }
                 // Committee assignments deliberately do not appear here. Placing a
                 // member's committees next to a specific trade would let the layout imply
@@ -295,7 +300,7 @@ struct TickerDetailView: View {
                 } else {
                     ForEach(trades.prefix(300)) { trade in
                         NavigationLink(value: trade) {
-                            DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                            DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                         }
                             .disclosureRowChrome()
                     }
