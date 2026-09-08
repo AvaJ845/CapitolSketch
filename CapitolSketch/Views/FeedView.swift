@@ -224,10 +224,7 @@ struct FeedView: View {
     }
 
     private var standoutCardLabel: String {
-        guard let h = store.standoutHeadline else {
-            return "What stands out. The largest brackets, latest filings, and most widely traded stocks."
-        }
-        return "What stands out. " + h.lead + (h.supporting.map { " " + $0 } ?? "")
+        "What stands out. " + (store.standoutHeadline?.combined ?? StandoutHeadline.placeholder)
     }
 
     private var masthead: some View {
@@ -274,7 +271,7 @@ struct FeedView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     } else {
-                        Text("The largest brackets, the latest filings, and the most widely traded stocks in this snapshot.")
+                        Text(StandoutHeadline.placeholder)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)

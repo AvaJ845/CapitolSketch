@@ -36,11 +36,11 @@ struct StandoutsView: View {
             case .topBracket:
                 return "Trades in the form's highest dollar brackets ($5M and up). The bracket is the only figure the form states."
             case .filedLate:
-                return "Disclosed more than 45 days after the trade — the STOCK Act's limit. Each member's latest, longest gap first."
+                return "Disclosed more than 45 days after the trade — the STOCK Act's limit. One per member, longest gap first."
             case .widelyHeld:
                 return "Stocks in the most members' filings this snapshot — a count of who filed, not of shares or dollars, and a filing can be a sale."
             case .newPosition:
-                return "A member's first disclosed trade in a stock, when that first trade was disclosed in the last 30 days of this snapshot."
+                return "A member's first disclosed trade in a stock, when that first trade was disclosed in the last 30 days of this snapshot. One per member."
             case .offPattern:
                 return "A single-stock trade by a member whose disclosed filings are otherwise almost all funds. One per member."
             case .rareTrader:
@@ -62,8 +62,14 @@ struct StandoutsView: View {
             }
         }
 
-        /// Most rules cap at 10; the two one-row-per-member rules can afford 15.
-        var cap: Int { (self == .memberLargest || self == .rareTrader) ? 15 : 10 }
+        /// The one-row-per-member rules still represent many members in a longer list, so
+        /// they cap at 15; the rest cap at 10.
+        var cap: Int {
+            switch self {
+            case .filedLate, .newPosition, .offPattern, .memberLargest: return 15
+            case .topBracket, .widelyHeld, .rareTrader: return 10
+            }
+        }
     }
 
     private func standouts(for row: Row) -> [Standout] {

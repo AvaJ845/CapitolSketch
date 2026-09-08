@@ -133,14 +133,14 @@ public struct SenateFetcher: Sendable {
 
     private func stateFor(_ bioguide: String?) -> String? {
         guard let bioguide, let directory else { return nil }
-        return directory.entries.first { $0.bioguideID == bioguide }?.state
+        return directory.entry(bioguide: bioguide)?.state
     }
 
     /// "Mitch McConnell" from the crosswalk — its `first` is already the name the member
     /// goes by, not necessarily the legal forename.
     private func canonicalName(_ bioguide: String?) -> String? {
         guard let bioguide, let directory,
-              let e = directory.entries.first(where: { $0.bioguideID == bioguide })
+              let e = directory.entry(bioguide: bioguide)
         else { return nil }
         return "\(e.first) \(e.last)"
     }
