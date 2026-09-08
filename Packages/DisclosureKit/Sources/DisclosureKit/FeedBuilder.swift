@@ -17,6 +17,21 @@ public enum FeedBuilder {
         }
     }
 
+    /// Newest *disclosure* first — the order that answers "what was just filed", as
+    /// opposed to `sorted`'s transaction-date order. Pure navigation over the same rows:
+    /// no row is added, dropped or reworded, only reordered.
+    ///
+    /// The tiebreak matches `sorted` (id descending) so a given snapshot renders in one
+    /// deterministic order. `disclosedDate` is always a real filing date, so — unlike
+    /// `sortDate` — there is no impossible-date case to guard here.
+    public static func byDisclosureDate(_ trades: [Trade]) -> [Trade] {
+        trades.sorted {
+            $0.disclosedDate == $1.disclosedDate
+                ? $0.id > $1.id
+                : $0.disclosedDate > $1.disclosedDate
+        }
+    }
+
     public static func make(
         trades: [Trade],
         members: [Member],
