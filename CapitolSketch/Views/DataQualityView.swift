@@ -56,7 +56,9 @@ struct DataQualityView: View {
                 statRow(trades.count.formatted(),
                         "Disclosed transactions in the loaded filings.")
                 statRow(store.members.count.formatted(),
-                        "House members with at least one disclosed transaction here.")
+                        store.isMultiChamber
+                            ? "Members of Congress with at least one disclosed transaction here."
+                            : "House members with at least one disclosed transaction here.")
                 statRow(filingYears, "Filing years covered by this snapshot.")
                 if let generatedAt = store.generatedAt {
                     statRow(generatedAt.formatted(date: .abbreviated, time: .shortened),
@@ -76,9 +78,9 @@ struct DataQualityView: View {
                      + "project, compiled into this snapshot when it was built. It reflects "
                      + "current full-committee membership only. It is missing where a "
                      + "member could not be matched to that roster, for members who have "
-                     + "since left the House, and for party leaders, who often hold no "
-                     + "committee seat. Committee membership is never compared with any "
-                     + "trade.")
+                     + "since left \(store.isMultiChamber ? "Congress" : "the House"), and "
+                     + "for party leaders, who often hold no committee seat. Committee "
+                     + "membership is never compared with any trade.")
             }
 
             if !countsByYear.isEmpty {

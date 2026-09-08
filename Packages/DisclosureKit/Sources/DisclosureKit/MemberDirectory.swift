@@ -19,10 +19,15 @@ public struct MemberDirectory: Sendable {
         /// The name the member is actually known by, when it differs from the legal
         /// first name: the Clerk files "James D Jordan", the crosswalk says "Jim".
         public let nickname: String?
+        /// Calendar year the member's last term ends (or ended). Lets a name-only
+        /// resolver ignore a long-dead namesake — there are many Senate "Kennedy"s and
+        /// "King"s in the historical file. `9999` when no end date could be read.
+        public let lastTermEndYear: Int
 
         public init(
             bioguideID: String, last: String, first: String, state: String,
-            district: String?, chamber: Chamber, nickname: String? = nil
+            district: String?, chamber: Chamber, nickname: String? = nil,
+            lastTermEndYear: Int = 9999
         ) {
             self.bioguideID = bioguideID
             self.last = last
@@ -31,6 +36,23 @@ public struct MemberDirectory: Sendable {
             self.district = district
             self.chamber = chamber
             self.nickname = nickname
+            self.lastTermEndYear = lastTermEndYear
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case bioguideID, last, first, state, district, chamber, nickname, lastTermEndYear
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            bioguideID = try c.decode(String.self, forKey: .bioguideID)
+            last = try c.decode(String.self, forKey: .last)
+            first = try c.decode(String.self, forKey: .first)
+            state = try c.decode(String.self, forKey: .state)
+            district = try c.decodeIfPresent(String.self, forKey: .district)
+            chamber = try c.decode(Chamber.self, forKey: .chamber)
+            nickname = try c.decodeIfPresent(String.self, forKey: .nickname)
+            lastTermEndYear = try c.decodeIfPresent(Int.self, forKey: .lastTermEndYear) ?? 9999
         }
     }
 
@@ -60,6 +82,16 @@ public struct MemberDirectory: Sendable {
         s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
             .replacingOccurrences(of: #"[^a-z ]"#, with: "", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Drops a trailing generational suffix from an already-normalized string:
+    /// "mcconnell jr" → "mcconnell", "begich iii" → "begich". Only strips from the end,
+    /// so a real name that merely contains "v" is untouched.
+    static let nameSuffixes: Set<String> = ["jr", "sr", "ii", "iii", "iv", "v"]
+    static func strippingSuffix(_ normalized: String) -> String {
+        var tokens = normalized.split(separator: " ").map(String.init)
+        while let last = tokens.last, nameSuffixes.contains(last) { tokens.removeLast() }
+        return tokens.joined(separator: " ")
     }
 
     private static func key(last: String, first: String, state: String) -> String {
@@ -135,13 +167,29 @@ public struct MemberDirectory: Sendable {
     /// Senate-only: the sole caller is `SenateFetcher`, so it is compiled only where
     /// SEEDGEN is defined (`seedgen` and the DisclosureKit test target). See P0-2.
     #if SEEDGEN
-    public func resolve(last: String, first: String, chamber: Chamber) -> Resolution {
-        let nLast = Self.normalize(last)
-        let nFirst = Self.normalize(first).components(separatedBy: " ").first ?? ""
+    /// - Parameter servingInOrAfter: when set, a candidate whose last term ended before
+    ///   this year is dropped before matching. The eFD prints "John N Kennedy" and the
+    ///   crosswalk holds a dozen historical Senate Kennedys; without this the surname
+    ///   never narrows to one person. Pass the earliest filing year.
+    public func resolve(
+        last: String, first: String, chamber: Chamber, servingInOrAfter year: Int? = nil
+    ) -> Resolution {
+        // Suffixes land in either column: eFD prints "King" / "Jr." but also
+        // "Begich III" / "". Strip from both, and if the surname column was nothing but a
+        // suffix, take the surname from the last real token of the forename column.
+        let firstTokens = Self.strippingSuffix(Self.normalize(first))
+            .split(separator: " ").map(String.init)
+        let nLast: String = {
+            let stripped = Self.strippingSuffix(Self.normalize(last))
+            if !stripped.isEmpty { return stripped }
+            return firstTokens.last ?? ""
+        }()
+        let nFirst = firstTokens.first ?? ""
 
-        let bySurname = entries.filter {
+        var bySurname = entries.filter {
             $0.chamber == chamber && Self.normalize($0.last) == nLast
         }
+        if let year { bySurname = bySurname.filter { $0.lastTermEndYear >= year } }
         if let only = Self.sameHuman(bySurname) { return .resolved(only.bioguideID) }
 
         guard !nFirst.isEmpty else {
@@ -214,6 +262,7 @@ public struct MemberDirectory: Sendable {
                 let type: String?
                 let state: String?
                 let district: Int?
+                let end: String?
             }
             let id: ID
             let name: Name
@@ -238,6 +287,12 @@ public struct MemberDirectory: Sendable {
                 .flatMap { $0 == first ? nil : $0 }
             let nickname = l.name.nickname ?? officialFirst
 
+            // The latest year any of this member's terms runs to — used to rule out a
+            // long-dead namesake in a name-only match.
+            let lastEndYear = terms
+                .compactMap { $0.end.flatMap { Int($0.prefix(4)) } }
+                .max() ?? 9999
+
             // A member can serve several terms and change seat. Index every distinct
             // seat they held so an older filing still resolves, and so the seat number
             // can separate namesakes within one delegation.
@@ -249,7 +304,7 @@ public struct MemberDirectory: Sendable {
                 entries.append(Entry(
                     bioguideID: bio, last: last, first: first, state: state,
                     district: t.district.map(String.init), chamber: chamber,
-                    nickname: nickname
+                    nickname: nickname, lastTermEndYear: lastEndYear
                 ))
             }
         }

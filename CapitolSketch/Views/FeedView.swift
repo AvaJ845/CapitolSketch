@@ -24,6 +24,8 @@ struct TradeFilter: Equatable {
     /// Two-letter state codes of the members whose filings to show. Navigation over data
     /// already in the feed — the state comes from `Member`, resolved by the caller.
     var states: Set<String> = []
+    /// Chambers to show. Only offered when the snapshot covers more than one.
+    var chambers: Set<Chamber> = []
     var optionsOnly = false
     var lateOnly = false
     /// Keep only trades whose bracket floor is at least this, or an open-ended bracket.
@@ -32,24 +34,26 @@ struct TradeFilter: Equatable {
     var offPatternOnly = false
 
     var isActive: Bool {
-        !types.isEmpty || !owners.isEmpty || !states.isEmpty
+        !types.isEmpty || !owners.isEmpty || !states.isEmpty || !chambers.isEmpty
             || optionsOnly || lateOnly || minBracket != nil || offPatternOnly
     }
 
     var activeCount: Int {
-        types.count + owners.count + states.count
+        types.count + owners.count + states.count + chambers.count
             + (optionsOnly ? 1 : 0) + (lateOnly ? 1 : 0)
             + (minBracket != nil ? 1 : 0) + (offPatternOnly ? 1 : 0)
     }
 
     /// - Parameters:
     ///   - stateOf: maps a member ID to their two-letter state code.
+    ///   - chamberOf: maps a member ID to their chamber.
     ///   - offPatternIDs: the trade ids the `offPattern` standout rule surfaced, used
     ///     only when `offPatternOnly` is set. Passed in the same way as `stateOf` so the
     ///     filter stays free of any dependency on the store.
     func apply(
         to trades: [Trade],
         stateOf: (String) -> String?,
+        chamberOf: (String) -> Chamber? = { _ in nil },
         offPatternIDs: Set<String> = []
     ) -> [Trade] {
         let q = search.trimmingCharacters(in: .whitespaces).lowercased()
@@ -58,6 +62,9 @@ struct TradeFilter: Equatable {
             if !owners.isEmpty && !owners.contains(t.owner) { return false }
             if !states.isEmpty {
                 guard let s = stateOf(t.memberID), states.contains(s) else { return false }
+            }
+            if !chambers.isEmpty {
+                guard let c = chamberOf(t.memberID), chambers.contains(c) else { return false }
             }
             if optionsOnly && !t.isOption { return false }
             if lateOnly && !t.isLateFiling { return false }
@@ -96,6 +103,7 @@ struct FeedView: View {
         filter.apply(
             to: store.trades,
             stateOf: { store.member(id: $0)?.state },
+            chamberOf: { store.member(id: $0)?.chamber },
             offPatternIDs: offPatternIDs
         )
     }
@@ -103,6 +111,13 @@ struct FeedView: View {
     /// Distinct member states present in the feed, for the filter sheet.
     private var availableStates: [String] {
         Set(store.members.map(\.state)).sorted()
+    }
+
+    /// Chambers this snapshot covers, in a stable order. Empty (so no facet) unless the
+    /// feed spans more than one.
+    private var availableChambers: [Chamber] {
+        guard store.isMultiChamber else { return [] }
+        return Chamber.allCases.filter { store.feed.chambersCovered.contains($0) }
     }
 
     var body: some View {
@@ -135,7 +150,7 @@ struct FeedView: View {
                         Section {
                             ForEach(results.prefix(400)) { trade in
                                 NavigationLink(value: trade) {
-                                    DisclosureRow(trade: trade)
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
                                 }
                                 .disclosureRowChrome()
                             }
@@ -177,6 +192,12 @@ struct FeedView: View {
                     try? await Task.sleep(for: .milliseconds(350))
                     if path.isEmpty { path.append(StandoutsRoute()) }
                 }
+                // Screenshot QA: open the filter sheet (`-open-filters`), like the other
+                // `-route-*` / `-demo-*` launch arguments.
+                if ProcessInfo.processInfo.arguments.contains("-open-filters") {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    showingFilters = true
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -191,9 +212,13 @@ struct FeedView: View {
                 }
             }
             .sheet(isPresented: $showingFilters) {
-                FilterSheet(filter: $filter, availableStates: availableStates)
-                    .presentationDetents([.medium, .large])
-                    .tint(Ink.accent)
+                FilterSheet(
+                    filter: $filter,
+                    availableStates: availableStates,
+                    availableChambers: availableChambers
+                )
+                .presentationDetents([.medium, .large])
+                .tint(Ink.accent)
             }
         }
     }
@@ -262,11 +287,22 @@ private struct FilterToolbarLabel: View {
 private struct FilterSheet: View {
     @Binding var filter: TradeFilter
     var availableStates: [String] = []
+    var availableChambers: [Chamber] = []
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             Form {
+                if availableChambers.count > 1 {
+                    Section("Chamber") {
+                        ForEach(availableChambers) { chamber in
+                            toggleRow(chamber.label, isOn: filter.chambers.contains(chamber)) {
+                                toggle(chamber, in: &filter.chambers)
+                            }
+                        }
+                    }
+                }
+
                 Section("Direction") {
                     ForEach(TradeType.allCases, id: \.self) { type in
                         toggleRow(type.verb, isOn: filter.types.contains(type)) {

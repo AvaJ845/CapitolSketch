@@ -178,7 +178,7 @@ struct StandoutsView: View {
                         NavigationLink {
                             DisclosureDetailView(trade: standout.trade)
                         } label: {
-                            StandoutRow(standout: standout)
+                            StandoutRow(standout: standout, chamber: store.chamberTag(for: standout.trade))
                         }
                         .disclosureRowChrome()
                     }
@@ -201,6 +201,7 @@ struct StandoutsView: View {
 /// a shared line once there is room.
 private struct StandoutRow: View {
     let standout: Standout
+    var chamber: Chamber? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
     private var isAX: Bool { typeSize.isAccessibilitySize }
@@ -219,9 +220,19 @@ private struct StandoutRow: View {
         VStack(alignment: .leading, spacing: isAX ? 10 : 6) {
             reasonChip
 
-            Text(trade.memberName)
-                .font(.subheadline.weight(.medium))
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 6) {
+                Text(trade.memberName)
+                    .font(.subheadline.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+                if let chamber {
+                    Text(chamber.label)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             identity
 
@@ -240,7 +251,8 @@ private struct StandoutRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(trade.memberName), \(trade.txType.verb) \(trade.displaySymbol), "
+            "\(trade.memberName)\(chamber.map { ", \($0.label)" } ?? ""), "
+            + "\(trade.txType.verb) \(trade.displaySymbol), "
             + "\(trade.amount.accessibleDescription). Surfaced because: \(standout.reason)"
         )
     }
