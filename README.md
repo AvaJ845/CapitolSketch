@@ -1,11 +1,11 @@
 # CapitolSketch
 
-An iOS app that tracks stock trades disclosed by members of the US House of
-Representatives, with a personal watchlist that tells you when a House member
-trades a ticker you hold.
+An iOS app that tracks stock trades disclosed by members of the US Congress, with a
+personal watchlist that tells you when a member trades a ticker you hold.
 
-House only. Read-only. No brokerage, no account, no analytics. Nothing here is
-investment advice.
+House and Senate. Read-only. No brokerage, no account, no analytics. Nothing here is
+investment advice. Senate paper filings are counted but not machine-readable — see
+`SENATE.md`.
 
 App Store name: **CapitolSketch: Congress Trade**. Home Screen: **CapitolSketch**.
 
@@ -87,7 +87,8 @@ The pipeline:
    and keep the rows with `FilingType == "P"` (Periodic Transaction Report).
 2. Fetch each PTR PDF and extract text with PDFKit.
 3. Load the `congress-legislators` crosswalk (`legislators-current`,
-   `legislators-historical`) and resolve each filer to a Bioguide ID.
+   `legislators-historical`) and resolve each filer to a Bioguide ID, a party, and
+   (for the members list) the name they go by.
 4. Load the `congress-legislators` committee files (`committees-current`,
    `committee-membership-current`) and attach each member's full-committee assignments,
    by Bioguide ID, as plain names. Never matched against a traded company. A copy of
@@ -95,8 +96,9 @@ The pipeline:
    offline floor; a networked build always prefers a fresh fetch.
 5. Parse transaction rows and emit a single JSON feed.
 
-Current snapshot: **10,197 transactions from 128 members** across 2025–2026, with
-full-committee assignments for 117 of them.
+Current snapshot: **~12,600 transactions from 164 members** (House + Senate) across
+2025–2026, with party for every resolved member and committee assignments where the
+roster has them.
 
 ## Building the app
 
@@ -153,10 +155,12 @@ These are real and worth stating plainly:
 - **A few filings contain impossible dates** — a transaction date after the filing date,
   almost always a mistyped year. These are shown exactly as filed and flagged in the UI
   rather than silently corrected.
-- **No party affiliation.** The Clerk index does not include it and inventing a lookup
-  table for 400+ members would be error-prone.
 - **No prices or performance.** Deliberately: computing returns from a 45-day-stale range
   midpoint would be a fabricated number dressed up as analysis.
+- **Party is from the crosswalk, not the filing.** The Clerk index carries no party;
+  `seedgen` reads it from the same `congress-legislators` dataset it uses for Bioguide
+  IDs and committees, and bakes it into the seed. Shown as a plain "D" / "R" / "I" tag,
+  never a colour, never aggregated. A member the crosswalk did not place shows no tag.
 
 ## Regulatory risk
 

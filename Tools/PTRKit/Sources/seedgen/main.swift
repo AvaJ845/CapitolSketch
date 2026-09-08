@@ -177,11 +177,26 @@ if let roster = committeeRoster?.byBioguide {
         guard let bio = m.bioguideID, let names = roster[bio], !names.isEmpty else { return m }
         mapped += 1
         assignments += names.count
-        return m.withCommittees(names)
+        return m.with(committees: names)
     }
     log("committees: \(mapped) members mapped from \(assignments) assignments")
 } else {
     log("WARNING: committee assignments not applied — none of \(allMembers.count) members have committee data")
+}
+
+// Attach party from the same crosswalk. `.unknown` for anyone it did not place.
+if let directory {
+    var byParty: [Party: Int] = [:]
+    allMembers = allMembers.map { m in
+        let p = directory.party(bioguide: m.bioguideID)
+        byParty[p, default: 0] += 1
+        return m.with(party: p)
+    }
+    let d = byParty[.democrat] ?? 0, r = byParty[.republican] ?? 0
+    let i = byParty[.independent] ?? 0, u = byParty[.unknown] ?? 0
+    log("party: \(d) D, \(r) R, \(i) I, \(u) unknown")
+} else {
+    log("WARNING: party not applied — no member directory")
 }
 
 stats.tradesParsed = deduped.count

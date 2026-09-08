@@ -67,19 +67,29 @@ struct StandoutsTests {
 
     // MARK: - Rule 2 · filedLate
 
-    @Test("Filed late: 46 and 120 returned longest-first; 10 and an impossible date excluded")
+    @Test("Filed late: longest-first, one row per member; 10-day lag and an impossible date excluded")
     func filedLate() {
         let feed = makeFeed([
-            mk("on-time", member: "m", tx: "2026-03-01", disclosed: "2026-03-11"),   // lag 10
-            mk("late46", member: "m", tx: "2026-03-01", disclosed: "2026-04-16"),     // lag 46
-            mk("late120", member: "m", tx: "2026-03-01", disclosed: "2026-06-29"),    // lag 120
+            mk("m1-on-time", member: "m1", tx: "2026-03-01", disclosed: "2026-03-11"),  // lag 10
+            mk("m1-late46", member: "m1", tx: "2026-03-01", disclosed: "2026-04-16"),   // lag 46
+            mk("m1-late120", member: "m1", tx: "2026-03-01", disclosed: "2026-06-29"),  // lag 120
+            mk("m2-late80", member: "m2", tx: "2026-03-01", disclosed: "2026-05-20"),   // lag 80
             // Transaction dated after its own filing: the lag is not a real number.
-            mk("impossible", member: "m", tx: "2027-06-01", disclosed: "2026-02-01"),
+            mk("impossible", member: "m3", tx: "2027-06-01", disclosed: "2026-02-01"),
         ])
         let rows = Standouts.filedLate(in: feed)
-        #expect(rows.map(\.trade.id) == ["late120", "late46"])
+        // m1's worst (120) leads; m2 next; m1's second late filing (46) is dropped.
+        #expect(rows.map(\.trade.id) == ["m1-late120", "m2-late80"])
         #expect(rows.first?.reason == "Filed 120 days late")
-        #expect(rows.last?.reason == "Filed 46 days late")
+    }
+
+    @Test("Filed late: a lag past ~3.3 years is treated as a mistyped year and excluded")
+    func filedLateCeiling() {
+        let feed = makeFeed([
+            mk("real", member: "m1", tx: "2024-01-01", disclosed: "2025-06-01"),   // ~517 days
+            mk("typo", member: "m2", tx: "2015-05-08", disclosed: "2025-06-22"),    // ~3700 days
+        ])
+        #expect(Standouts.filedLate(in: feed).map(\.trade.id) == ["real"])
     }
 
     // MARK: - Rule 3 · widelyHeldTickers
@@ -137,7 +147,7 @@ struct StandoutsTests {
 
         let rows = Standouts.offPattern(in: makeFeed(trades))
         #expect(rows.map(\.trade.id) == ["p1-st"])
-        #expect(rows.first?.reason == "Off this member's usual pattern — mostly funds")
+        #expect(rows.first?.reason == "A single stock — this member's filings are otherwise almost all funds")
     }
 
     // MARK: - Rule 6 · rareTrader
@@ -174,6 +184,42 @@ struct StandoutsTests {
         #expect(rows.allSatisfy { $0.reason == "This member's largest disclosed" })
     }
 
+    // MARK: - Headline
+
+    @Test("Headline leads with the over-a-year-late count when 3 or more")
+    func headlineLeadsWithLatePattern() {
+        var trades: [Trade] = []
+        for i in 0..<4 {
+            trades.append(mk("late\(i)", member: "m\(i)", tx: "2024-01-01", disclosed: "2026-01-01"))
+        }
+        trades.append(mk("big", member: "z", ticker: "NVDA",
+                         amount: amt(.range, 500_000_100, 2_500_000_000)))
+        let h = try! #require(Standouts.headline(in: makeFeed(trades)))
+        #expect(h.lead == "4 trades were disclosed more than a year after they happened — the STOCK Act allows 45 days.")
+        #expect(h.supporting?.contains("largest disclosed bracket") == true)
+    }
+
+    @Test("Headline falls back to the widely-held ticker when nothing is late or huge")
+    func headlineFallsBackToWidelyHeld() {
+        var trades: [Trade] = []
+        for m in ["a", "b", "c", "d"] { trades.append(mk("t-\(m)", member: m, ticker: "AAPL")) }
+        let h = try! #require(Standouts.headline(in: makeFeed(trades)))
+        #expect(h.lead.contains("AAPL") && h.lead.contains("4 members"))
+    }
+
+    @Test("Headline describes the snapshot when nothing stands out")
+    func headlineDescribesSnapshot() {
+        let h = try! #require(Standouts.headline(in: makeFeed([
+            mk("t1", member: "a", ticker: "AAA"), mk("t2", member: "b", ticker: "BBB"),
+        ])))
+        #expect(h.lead.contains("2 members disclosed 2 trades"))
+    }
+
+    @Test("Headline is nil for an empty snapshot")
+    func headlineNilWhenEmpty() {
+        #expect(Standouts.headline(in: makeFeed([])) == nil)
+    }
+
     // MARK: - Determinism
 
     @Test("byCategory is deterministic for a given feed")
@@ -185,5 +231,42 @@ struct StandoutsTests {
         )
         #expect(Standouts.byCategory(in: feed) == Standouts.byCategory(in: feed))
         #expect(Standouts.widelyHeldTickers(in: feed) == Standouts.widelyHeldTickers(in: feed))
+        #expect(Standouts.headline(in: feed) == Standouts.headline(in: feed))
+    }
+}
+
+@Suite("Party")
+struct PartyTests {
+
+    @Test("Crosswalk strings map to the four cases")
+    func crosswalkMapping() {
+        #expect(Party(crosswalk: "Democrat") == .democrat)
+        #expect(Party(crosswalk: "Republican") == .republican)
+        #expect(Party(crosswalk: "Independent") == .independent)
+        #expect(Party(crosswalk: "Libertarian") == .independent)  // any minor party → independent
+        #expect(Party(crosswalk: nil) == .unknown)
+        #expect(Party(crosswalk: "") == .unknown)
+    }
+
+    @Test("A member JSON written before the party key decodes as unknown")
+    func decodesMemberWithoutPartyKey() throws {
+        let older = Data("""
+        { "id": "P000197", "bioguideID": "P000197", "name": "Nancy Pelosi",
+          "state": "CA", "district": "11", "chamber": "house" }
+        """.utf8)
+        let (_, decoder) = TradeFeed.makeCoder()
+        let m = try decoder.decode(Member.self, from: older)
+        #expect(m.party == .unknown)
+    }
+
+    @Test("party survives a feed round-trip")
+    func roundTrips() throws {
+        let m = Member(id: "x", bioguideID: "X000001", name: "X", state: "CA",
+                       district: "1", chamber: .house, party: .democrat)
+        let feed = FeedBuilder.make(trades: [], members: [m],
+                                    stats: ParseStats(), indexYears: [2026])
+        let (e, d) = TradeFeed.makeCoder()
+        let restored = try d.decode(TradeFeed.self, from: e.encode(feed))
+        #expect(restored.members.first?.party == .democrat)
     }
 }

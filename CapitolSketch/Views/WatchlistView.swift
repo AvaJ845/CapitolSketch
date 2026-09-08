@@ -67,7 +67,7 @@ struct WatchlistView: View {
                             Section("New since you last looked") {
                                 ForEach(newMatches) { trade in
                                     NavigationLink(value: trade) {
-                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                                 }
                                         .disclosureRowChrome()
                                 }
@@ -83,7 +83,7 @@ struct WatchlistView: View {
                             } else {
                                 ForEach(matches.prefix(300)) { trade in
                                     NavigationLink(value: trade) {
-                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade))
+                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                                 }
                                         .disclosureRowChrome()
                                 }
