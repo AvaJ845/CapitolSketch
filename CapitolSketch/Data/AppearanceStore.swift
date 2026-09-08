@@ -49,5 +49,15 @@ final class AppearanceStore {
         preference = Preference(rawValue: raw) ?? .system
     }
 
-    var colorScheme: ColorScheme? { preference.colorScheme }
+    /// Screenshot QA only: `-appearance-dark` / `-appearance-light` pin the scheme for the
+    /// launched process without persisting it, the same way the `-tab-*` / `-demo-*`
+    /// launch arguments drive the App Store capture set.
+    private static var launchOverride: ColorScheme? {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-appearance-dark") { return .dark }
+        if args.contains("-appearance-light") { return .light }
+        return nil
+    }
+
+    var colorScheme: ColorScheme? { Self.launchOverride ?? preference.colorScheme }
 }
