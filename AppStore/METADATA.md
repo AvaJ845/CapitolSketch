@@ -228,7 +228,7 @@ edited in here, not bolted on.
 > with alerts, Home Screen and Lock Screen widgets, three app icons, and a link to the
 > source PDF on every single trade.
 
-**v1.1.0 (build 3) — draft, ships once App Review notes and the screenshot design pass are done:**
+**v1.1.0 (build 4) — draft, ships once App Review notes and the screenshot design pass are done:**
 
 > • Senate disclosures are now covered alongside the House. Every filing is tagged by
 >   chamber, and you can filter the feed to one or the other.
