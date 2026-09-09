@@ -1,4 +1,6 @@
+<meta charset="utf-8">
 <title>CapitolSketch</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="An iOS app for the stock trades Congress discloses — from the primary record, on your phone.">
 <meta name="theme-color" content="#f3efe5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161c" media="(prefers-color-scheme: dark)">
@@ -8,13 +10,13 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 
 <style>
   /* ============================================================
-     CapitolSketch — the app's own warm-paper ground, navy ink,
-     an editorial serif over an institutional sans. One reading
-     column, set like a filing.
+     CapitolSketch — the app's own warm-paper ground and navy ink.
+     An editorial serif over an institutional sans; one reading
+     column, set like a filing. Light and dark.
      ============================================================ */
 
   :root {
@@ -22,50 +24,47 @@
 
     --paper:     #f3efe5;
     --card:      #fcfbf7;
-    --frame:     #efe9dc;
+    --frame:     #ece5d6;
     --ink:       #191c24;
-    --muted:     #655f4f;
+    --muted:     #625c4c;
     --faint:     #736d5b;
-    --rule:      #d9d1c0;
-    --hair:      #e6e0d0;
+    --rule:      #d7cfbd;
+    --hair:      #e5dece;
     --accent:    #26365c;
     --on-accent: #f3efe5;
-    --flag:      #9a4f28;   /* used once — echoes the app's data-quality orange, not the accent */
 
-    --shadow: 0 1px 1px rgba(25,28,36,.04), 0 14px 40px -22px rgba(25,28,36,.28);
+    --shadow: 0 1px 1px rgba(25,28,36,.04), 0 16px 44px -24px rgba(25,28,36,.30);
     --measure: 34em;
-    --gap: clamp(3.25rem, 6.5vw, 5rem);
+    --gap: clamp(2.75rem, 5.5vw, 4rem);
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --paper:     #14161c;
       --card:      #1c1f28;
-      --frame:     #23262f;
-      --ink:       #e9e4d6;
-      --muted:     #a29d8d;
-      --faint:     #8b8676;
-      --rule:      #333747;
-      --hair:      #2a2e39;
-      --accent:    #9fb3df;
+      --frame:     #262932;
+      --ink:       #eae5d8;
+      --muted:     #a49f8f;
+      --faint:     #8c8777;
+      --rule:      #343849;
+      --hair:      #2b2f3a;
+      --accent:    #a1b5e0;
       --on-accent: #14161c;
-      --flag:      #dd9160;
-      --shadow: 0 1px 1px rgba(0,0,0,.35), 0 20px 46px -22px rgba(0,0,0,.65);
+      --shadow: 0 1px 1px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.7);
     }
   }
   :root[data-theme="dark"] {
     --paper:     #14161c;
     --card:      #1c1f28;
-    --frame:     #23262f;
-    --ink:       #e9e4d6;
-    --muted:     #a29d8d;
-    --faint:     #8b8676;
-    --rule:      #333747;
-    --hair:      #2a2e39;
-    --accent:    #9fb3df;
+    --frame:     #262932;
+    --ink:       #eae5d8;
+    --muted:     #a49f8f;
+    --faint:     #8c8777;
+    --rule:      #343849;
+    --hair:      #2b2f3a;
+    --accent:    #a1b5e0;
     --on-accent: #14161c;
-    --flag:      #dd9160;
-    --shadow: 0 1px 1px rgba(0,0,0,.35), 0 20px 46px -22px rgba(0,0,0,.65);
+    --shadow: 0 1px 1px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.7);
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -93,11 +92,12 @@
     text-wrap: balance;
     margin: 0;
   }
-  h2 { font-size: clamp(1.5rem, 1.05rem + 1.9vw, 2rem); }
-  h3 { font-size: 1.22rem; }
+  h2 { font-size: clamp(1.5rem, 1.05rem + 1.8vw, 1.95rem); }
+  h3 { font-size: 1.2rem; }
 
   p { margin: 0 0 1rem; max-width: var(--measure); text-wrap: pretty; }
   p:last-child { margin-bottom: 0; }
+
   a {
     color: var(--accent);
     text-decoration: underline;
@@ -107,7 +107,7 @@
   a:hover { text-decoration-thickness: 2px; }
   strong { font-weight: 600; }
 
-  .lead { font-size: 1.14rem; max-width: 30em; color: var(--ink); }
+  .lead { font-size: 1.14rem; line-height: 1.55; max-width: 30em; color: var(--ink); }
   .muted { color: var(--muted); }
 
   .eyebrow {
@@ -122,7 +122,7 @@
   .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .tnum { font-variant-numeric: tabular-nums; }
 
-  /* ---------- layout: one flow, spacing owned by the gap ---------- */
+  /* ---------- one flow; spacing owned by the gap ---------- */
   main { display: flex; flex-direction: column; gap: var(--gap); }
   main > * { margin: 0; }
 
@@ -133,6 +133,7 @@
     background: var(--rule);
     position: relative;
     overflow: visible;
+    margin-block: calc(var(--gap) * -0.34);
   }
   hr.rule::before, hr.rule::after {
     content: "";
@@ -157,15 +158,23 @@
     letter-spacing: -0.012em;
   }
 
-  h1.thesis {
+  h1.headline {
     font-weight: 400;
-    font-size: clamp(1.85rem, 1.15rem + 3vw, 2.9rem);
-    line-height: 1.16;
-    letter-spacing: -0.014em;
-    margin: 0 0 1.5rem;
-    max-width: 15ch;
+    font-size: clamp(2rem, 1.3rem + 3vw, 3rem);
+    line-height: 1.14;
+    letter-spacing: -0.016em;
+    margin: 0 0 0.9rem;
+    max-width: 20ch;
   }
-  h1.thesis em { font-style: italic; color: var(--muted); }
+  p.tagline {
+    font-family: "Newsreader", ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: clamp(1.15rem, 0.95rem + 0.9vw, 1.45rem);
+    line-height: 1.4;
+    color: var(--muted);
+    max-width: 24ch;
+    margin: 0 0 1.6rem;
+  }
 
   ul.spec {
     list-style: none;
@@ -173,7 +182,7 @@
     margin: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem 1rem;
+    gap: 0.4rem 1.15rem;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.76rem;
     letter-spacing: 0.03em;
@@ -281,29 +290,29 @@
     .index dd { border-top: 0; padding-top: 0; padding-bottom: 1rem; }
   }
 
-  /* ---------- feature blocks ---------- */
-  .feature { display: grid; grid-template-columns: 1fr; gap: 1.75rem; align-items: start; }
+  /* ---------- feature blocks: copy always leads in source; the image side alternates on wide screens ---------- */
+  .feature { display: grid; grid-template-columns: 1fr; gap: 1.6rem; align-items: start; }
+  .feature .copy p:first-of-type { margin-top: 0.1rem; }
   @media (min-width: 45rem) {
-    .feature { grid-template-columns: 1fr 17.5rem; gap: 3rem; }
-    .feature.flip { grid-template-columns: 17.5rem 1fr; }
-    .feature.flip .copy { order: 2; }
+    .feature { grid-template-columns: 1fr 17rem; gap: 3rem; align-items: center; }
+    .feature.flip { grid-template-columns: 17rem 1fr; }
+    .feature.flip figure { order: -1; }
   }
 
+  /* screenshots — a considered mount, not a fake phone: hairline, soft radius, shadow */
   .phone {
     width: 100%;
-    max-width: 16rem;
-    margin: 0 auto;
-    background: var(--frame);
-    border: 1px solid var(--rule);
-    border-radius: 34px;
-    padding: 7px;
-    box-shadow: var(--shadow);
+    max-width: 15rem;
+    margin: 0;
   }
+  @media (min-width: 45rem) { .phone { margin: 0 auto; } }
   .phone img {
     display: block;
     width: 100%;
     height: auto;
-    border-radius: 27px;
+    border-radius: 14px;
+    border: 1px solid var(--hair);
+    box-shadow: var(--shadow);
   }
   figure { margin: 0; }
   figcaption {
@@ -311,14 +320,14 @@
     font-size: 0.71rem;
     letter-spacing: 0.03em;
     color: var(--faint);
-    text-align: center;
     margin-top: 0.7rem;
   }
+  @media (min-width: 45rem) { figcaption { text-align: center; } }
 
   /* ---------- icons ---------- */
   .icons { display: flex; gap: 1.4rem; flex-wrap: wrap; margin-top: 1.5rem; }
   .icons figure { text-align: center; }
-  .icons img { width: 76px; height: 76px; border-radius: 17px; box-shadow: var(--shadow); }
+  .icons img { width: 72px; height: 72px; border-radius: 16px; box-shadow: var(--shadow); }
   .icons figcaption { margin-top: 0.5rem; }
 
   /* ---------- pull statement ---------- */
@@ -329,8 +338,8 @@
   }
   blockquote.stance p {
     font-family: "Newsreader", ui-serif, Georgia, serif;
-    font-size: 1.3rem;
-    line-height: 1.42;
+    font-size: clamp(1.25rem, 1.05rem + 0.8vw, 1.5rem);
+    line-height: 1.4;
     color: var(--ink);
     font-weight: 400;
     max-width: 22em;
@@ -379,10 +388,11 @@
     border-top: 1px solid var(--hair);
   }
   ul.never li:first-child { border-top: 0; }
-  ul.never li::before { content: "—"; position: absolute; left: 0; color: var(--faint); }
+  ul.never li::before { content: "\2014"; position: absolute; left: 0; color: var(--faint); }
 
   footer {
-    padding: 2.25rem 0 3.5rem;
+    padding-top: 2.25rem;
+    padding-bottom: 3.5rem;
     border-top: 1px solid var(--rule);
     font-family: "IBM Plex Mono", monospace;
     font-size: 0.76rem;
@@ -394,8 +404,8 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 
   @media (prefers-reduced-motion: no-preference) {
-    .reveal { opacity: 0; transform: translateY(12px); transition: opacity .65s ease, transform .65s ease; }
-    .reveal.in { opacity: 1; transform: none; }
+    .js .reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; }
+    .js .reveal.in { opacity: 1; transform: none; }
   }
 </style>
 
@@ -408,7 +418,8 @@
         <span class="name">CapitolSketch</span>
       </div>
 
-      <h1 class="thesis">The stock trades Congress discloses. <em>Read from the primary record, on your phone.</em></h1>
+      <h1 class="headline">The stock trades Congress discloses.</h1>
+      <p class="tagline">From the primary record &mdash; on your phone, with nothing tracked.</p>
 
       <ul class="spec">
         <li>iPhone &amp; iPad</li>
@@ -418,7 +429,7 @@
         <li>Works offline</li>
       </ul>
 
-      <figure class="filing" role="figure" aria-label="A disclosed trade, as CapitolSketch shows it: Jonathan Jackson, a partial sale of ViaSat common stock, disclosed range one thousand one to fifteen thousand dollars, disclosed six days after the transaction.">
+      <figure class="filing" role="figure" aria-label="A disclosed trade as CapitolSketch shows it: Jonathan Jackson, a partial sale of ViaSat common stock, disclosed range one thousand one to fifteen thousand dollars, disclosed six days after the transaction.">
         <div class="filing-top" aria-hidden="true">
           <span class="badge">&darr; Sold (partial)</span>
           <span class="sym">VSAT</span>
@@ -469,22 +480,22 @@
         <p>Each row carries a plain <span class="mono">D</span>&thinsp;/&thinsp;<span class="mono">R</span> tag and a <span class="mono">House</span>&thinsp;/&thinsp;<span class="mono">Senate</span> tag &mdash; never a colour. Switch to <strong>Just disclosed</strong> to sort by filing date, the part that is actually time-sensitive.</p>
       </div>
       <figure>
-        <div class="phone"><img src="assets/01-feed.jpg" width="780" height="1610" loading="lazy" alt="The Disclosures feed: 12,702 transactions, a Recent trades / Just disclosed toggle, the What stands out card, and trade rows carrying party and chamber tags."></div>
+        <div class="phone"><img src="assets/01-feed.jpg" width="760" height="976" loading="lazy" alt="The Disclosures feed: 12,702 transactions, a Recent trades / Just disclosed toggle, the What stands out card, and trade rows carrying party and chamber tags."></div>
         <figcaption>Disclosures</figcaption>
       </figure>
     </section>
 
     <section class="feature flip reveal">
-      <figure>
-        <div class="phone"><img src="assets/02-standouts.jpg" width="780" height="1610" loading="lazy" alt="The What stands out screen. It opens: 481 trades were disclosed more than a year after they happened — the STOCK Act allows 45 days. Below, a Biggest trades list."></div>
-        <figcaption>What stands out</figcaption>
-      </figure>
       <div class="copy">
         <p class="eyebrow">What stands out</p>
-        <h2>A finding, not a leaderboard</h2>
-        <p>The screen opens with the most notable thing in the current snapshot, stated as a fact you can check: <span style="color:var(--flag)">how many trades were disclosed more than a year late</span>, how many landed in the form's top brackets.</p>
+        <h2>A finding, not a leaderboard</h2>
+        <p>The screen opens with the most notable thing in the current snapshot, stated as a fact you can check: how many trades were disclosed more than a year late, how many landed in the form's top brackets.</p>
         <p>Below that: biggest trades, longest disclosure gaps, most widely traded stocks. Each list is a plain count. Nothing is scored against anything else.</p>
       </div>
+      <figure>
+        <div class="phone"><img src="assets/02-standouts.jpg" width="760" height="976" loading="lazy" alt="The What stands out screen. It opens: 481 trades were disclosed more than a year after they happened — the STOCK Act allows 45 days. Below, a Biggest trades list."></div>
+        <figcaption>What stands out</figcaption>
+      </figure>
     </section>
 
     <section class="feature reveal">
@@ -495,22 +506,22 @@
         <p>One tap opens the source: a US House Clerk PDF, or a US Senate eFD page. The detail screen names the filing it was transcribed from and tells you to check anything that matters against it.</p>
       </div>
       <figure>
-        <div class="phone"><img src="assets/06-detail.jpg" width="780" height="1610" loading="lazy" alt="A disclosure detail for WFC, bought, disclosed range $1,001 to $15,000, with a prominent View the source filing button. Rows read Member: Mitch McConnell, Party: Republican, Chamber: Senate, Account: Spouse."></div>
+        <div class="phone"><img src="assets/06-detail.jpg" width="760" height="976" loading="lazy" alt="A disclosure detail for WFC, bought, disclosed range $1,001 to $15,000, with a prominent View the source filing button. Rows read Member: Mitch McConnell, Party: Republican, Chamber: Senate, Account: Spouse."></div>
         <figcaption>Disclosure &middot; a Senate filing</figcaption>
       </figure>
     </section>
 
     <section class="feature flip reveal">
-      <figure>
-        <div class="phone"><img src="assets/03-watchlist.jpg" width="780" height="1610" loading="lazy" alt="The Watchlist screen: ticker chips for AAPL, BE, MSFT and NVDA, a followed member, and 496 disclosed trades that match."></div>
-        <figcaption>Watchlist</figcaption>
-      </figure>
       <div class="copy">
         <p class="eyebrow">Watchlist</p>
         <h2>It stays on your phone</h2>
         <p>Add the tickers you own and the members you want to follow. When a new filing matches, CapitolSketch tells you &mdash; with a notification that only restates the public record.</p>
         <p>Your list is never uploaded. Not as a list, not as a hash, not as a count. No request the app makes changes based on it.</p>
       </div>
+      <figure>
+        <div class="phone"><img src="assets/03-watchlist.jpg" width="760" height="976" loading="lazy" alt="The Watchlist screen: ticker chips for AAPL, BE, MSFT and NVDA, a followed member, and 496 disclosed trades that match."></div>
+        <figcaption>Watchlist</figcaption>
+      </figure>
     </section>
 
     <section class="feature reveal">
@@ -521,27 +532,27 @@
         <p>Filter the feed to one chamber, one direction, one dollar floor, or one state.</p>
       </div>
       <figure>
-        <div class="phone"><img src="assets/04-members.jpg" width="780" height="1610" loading="lazy" alt="The Members list: 164 members with disclosed trades, each row a monogram, a name, a line reading party, chamber and seat, and a disclosed-trade count."></div>
+        <div class="phone"><img src="assets/04-members.jpg" width="760" height="976" loading="lazy" alt="The Members list: 164 members with disclosed trades, each row a monogram, a name, a line reading party, chamber and seat, and a disclosed-trade count."></div>
         <figcaption>Members</figcaption>
       </figure>
     </section>
 
     <section class="feature flip reveal">
-      <figure>
-        <div class="phone"><img src="assets/05-settings.jpg" width="780" height="1610" loading="lazy" alt="Settings: the CapitolSketch serif wordmark, House &amp; Senate · public record, a System / Light / Dark control, and three app icons — Navy, Paper, Civic Red — each a Capitol dome."></div>
-        <figcaption>Settings</figcaption>
-      </figure>
       <div class="copy">
         <p class="eyebrow">Craft</p>
         <h2>Calm by default</h2>
         <p>No account. No sign-in. No ads. No analytics. No brokerage connection. The app downloads one public snapshot &mdash; the same file for everyone &mdash; and everything else happens on the device.</p>
         <p>Light, dark, and system. Three app icons. A version line that reads straight from the build.</p>
         <div class="icons">
-          <figure><img src="assets/iconNavy.png" width="76" height="76" loading="lazy" alt=""><figcaption>Navy</figcaption></figure>
-          <figure><img src="assets/iconPaper.png" width="76" height="76" loading="lazy" alt=""><figcaption>Paper</figcaption></figure>
-          <figure><img src="assets/iconRed.png" width="76" height="76" loading="lazy" alt=""><figcaption>Civic Red</figcaption></figure>
+          <figure><img src="assets/iconNavy.png" width="72" height="72" loading="lazy" alt=""><figcaption>Navy</figcaption></figure>
+          <figure><img src="assets/iconPaper.png" width="72" height="72" loading="lazy" alt=""><figcaption>Paper</figcaption></figure>
+          <figure><img src="assets/iconRed.png" width="72" height="72" loading="lazy" alt=""><figcaption>Civic Red</figcaption></figure>
         </div>
       </div>
+      <figure>
+        <div class="phone"><img src="assets/05-settings.jpg" width="760" height="976" loading="lazy" alt="Settings: the CapitolSketch serif wordmark, House &amp; Senate · public record, a System / Light / Dark control, and three app icons — Navy, Paper, Civic Red — each a Capitol dome."></div>
+        <figcaption>Settings</figcaption>
+      </figure>
     </section>
 
     <hr class="rule">
@@ -562,14 +573,12 @@
       </dl>
     </section>
 
-    <hr class="rule">
-
     <section>
       <blockquote class="stance">
         <p>We'll tell you something happened. We'll never tell you what to do about it.</p>
         <cite>CapitolSketch &mdash; Settings &rsaquo; Important</cite>
       </blockquote>
-      <p class="eyebrow" style="margin-top:2.4rem">What it will never be</p>
+      <p class="eyebrow" style="margin-top:2.25rem">What it will never be</p>
       <ul class="never">
         <li>No investment advice, predictions, or simulated trading</li>
         <li>No party colour, no party aggregate, no &ldquo;who's winning&rdquo;</li>
@@ -594,6 +603,7 @@
 <script>
   (function () {
     var root = document.documentElement;
+    root.classList.add("js");
     try {
       var t = localStorage.getItem("cs-theme");
       if (t === "dark" || t === "light") root.setAttribute("data-theme", t);
@@ -611,5 +621,9 @@
       });
     }, { rootMargin: "0px 0px -8% 0px" });
     reveals.forEach(function (el) { io.observe(el); });
+    // safety net: if anything is still hidden after 3s, show it
+    setTimeout(function () {
+      reveals.forEach(function (el) { el.classList.add("in"); });
+    }, 3000);
   })();
 </script>
