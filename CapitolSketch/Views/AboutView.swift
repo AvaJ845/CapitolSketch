@@ -200,7 +200,7 @@ struct AboutView: View {
         }
     }
 
-    /// "1.1.0 (3)" — the marketing version and the build, straight from the bundle so it
+    /// "1.1.0 (4)" — the marketing version and the build, straight from the bundle so it
     /// can never drift from what was actually shipped.
     static var appVersion: String {
         let info = Bundle.main.infoDictionary
