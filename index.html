@@ -450,6 +450,68 @@
   .theme-toggle:hover { color: var(--muted); }
   .theme-toggle { display: none; }
   .js .theme-toggle { display: inline; }
+
+  /* ---------- get-the-app ---------- */
+  .cta .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.4rem;
+    padding: 0.9rem 1.5rem;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+    transition: filter .15s ease, transform .15s ease;
+  }
+  .cta .btn:hover { filter: brightness(1.06); text-decoration: none; }
+  .cta .btn:active { transform: translateY(1px); }
+  .cta .btn .arr { font-weight: 400; }
+
+  .cta-note {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin: 0.85rem 0 0;
+    max-width: 30em;
+  }
+  .cta-soon {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.4rem;
+    padding: 0.5rem 0.95rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+  }
+  .cta-soon .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--accent);
+    flex: none;
+  }
+  .cta-terms {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    color: var(--faint);
+    margin: 1rem 0 0;
+  }
+  .hero-beta {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    margin: 1.4rem 0 0;
+  }
 </style>
 </head>
 <body>
@@ -492,6 +554,7 @@
         <div class="timing" aria-hidden="true">Traded Aug 28, 2026 &middot; disclosed 6 days later</div>
       </figure>
       <p class="filing-note">One real row, rebuilt. The bracket is the only figure the form states.</p>
+      <p class="hero-beta"><a href="https://testflight.apple.com/join/wVbrbDT5">Now in open beta on TestFlight &rarr;</a></p>
     </header>
 
     <hr class="rule">
@@ -617,6 +680,20 @@
         <dd>Hand-marked carbon-copy scans that machine reading can't do reliably. They are counted and disclosed as missing &mdash; never invented.</dd>
       </dl>
     </section>
+
+    <hr class="rule">
+
+    <section class="cta">
+      <p class="eyebrow">Get it</p>
+      <h2>Now in open beta</h2>
+      <p>The full app &mdash; House and Senate, the watchlist, the widgets &mdash; is on Apple TestFlight while it goes through App Review.</p>
+      <a class="btn" href="https://testflight.apple.com/join/wVbrbDT5">Join the TestFlight beta <span class="arr">&rarr;</span></a>
+      <p class="cta-note">Early access through Apple TestFlight. No email to us, no account, nothing tracked &mdash; the same privacy as the app.</p>
+      <p class="cta-soon"><span class="dot" aria-hidden="true"></span> Coming soon to the App Store</p>
+      <p class="cta-terms">Free &middot; no account &middot; no ads &middot; no in-app purchases</p>
+    </section>
+
+    <hr class="rule">
 
     <section>
       <blockquote class="stance">
