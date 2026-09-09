@@ -1,16 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <title>CapitolSketch</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="An iOS app for the stock trades Congress discloses — from the primary record, on your phone.">
+<meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f3efe5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161c" media="(prefers-color-scheme: dark)">
+
+<link rel="canonical" href="https://avaj845.github.io/CapitolSketch/">
+<link rel="icon" href="assets/iconNavy.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/iconNavy.png">
+
 <meta property="og:title" content="CapitolSketch">
 <meta property="og:description" content="The stock trades Congress discloses — from the primary record, on your phone. No account, nothing tracked.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://avaj845.github.io/CapitolSketch/">
+<meta property="og:image" content="https://avaj845.github.io/CapitolSketch/assets/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="CapitolSketch — the stock trades Congress discloses, from the primary record, on your phone.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CapitolSketch">
+<meta name="twitter:description" content="The stock trades Congress discloses — from the primary record, on your phone. No account, nothing tracked.">
+<meta name="twitter:image" content="https://avaj845.github.io/CapitolSketch/assets/og-card.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<script>
+  // Set the saved appearance before first paint so there is no flash.
+  try {
+    var t = localStorage.getItem("cs-theme");
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {}
+</script>
 
 <style>
   /* ============================================================
@@ -407,7 +433,26 @@
     .js .reveal { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .6s ease; }
     .js .reveal.in { opacity: 1; transform: none; }
   }
+
+  /* ---------- theme toggle ---------- */
+  .theme-toggle {
+    background: none;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: var(--faint);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  .theme-toggle:hover { color: var(--muted); }
+  .theme-toggle { display: none; }
+  .js .theme-toggle { display: inline; }
 </style>
+</head>
+<body>
 
 <div class="wrap">
   <main>
@@ -594,6 +639,7 @@
       </div>
       <div class="row" style="margin-top:.5rem">
         <span>Nothing here is investment advice.</span>
+        <span><button type="button" class="theme-toggle" data-theme-toggle aria-live="polite">Appearance: system</button></span>
       </div>
     </footer>
 
@@ -604,10 +650,29 @@
   (function () {
     var root = document.documentElement;
     root.classList.add("js");
-    try {
-      var t = localStorage.getItem("cs-theme");
-      if (t === "dark" || t === "light") root.setAttribute("data-theme", t);
-    } catch (e) {}
+
+    // Appearance: system (default) → light → dark → system. Persisted per-visitor.
+    var MODES = ["system", "light", "dark"];
+    function readMode() {
+      try {
+        var t = localStorage.getItem("cs-theme");
+        return MODES.indexOf(t) > -1 ? t : "system";
+      } catch (e) { return "system"; }
+    }
+    function applyMode(m) {
+      if (m === "system") root.removeAttribute("data-theme");
+      else root.setAttribute("data-theme", m);
+      var btn = document.querySelector("[data-theme-toggle]");
+      if (btn) btn.textContent = "Appearance: " + m;
+    }
+    applyMode(readMode());
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest && e.target.closest("[data-theme-toggle]");
+      if (!btn) return;
+      var next = MODES[(MODES.indexOf(readMode()) + 1) % MODES.length];
+      try { localStorage.setItem("cs-theme", next); } catch (e2) {}
+      applyMode(next);
+    });
 
     var reveals = document.querySelectorAll(".reveal");
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -627,3 +692,5 @@
     }, 3000);
   })();
 </script>
+</body>
+</html>
