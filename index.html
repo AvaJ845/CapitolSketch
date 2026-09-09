@@ -1,0 +1,615 @@
+<title>CapitolSketch</title>
+<meta name="description" content="An iOS app for the stock trades Congress discloses — from the primary record, on your phone.">
+<meta name="theme-color" content="#f3efe5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161c" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="CapitolSketch">
+<meta property="og:description" content="The stock trades Congress discloses — from the primary record, on your phone. No account, nothing tracked.">
+<meta property="og:type" content="website">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  /* ============================================================
+     CapitolSketch — the app's own warm-paper ground, navy ink,
+     an editorial serif over an institutional sans. One reading
+     column, set like a filing.
+     ============================================================ */
+
+  :root {
+    color-scheme: light dark;
+
+    --paper:     #f3efe5;
+    --card:      #fcfbf7;
+    --frame:     #efe9dc;
+    --ink:       #191c24;
+    --muted:     #655f4f;
+    --faint:     #736d5b;
+    --rule:      #d9d1c0;
+    --hair:      #e6e0d0;
+    --accent:    #26365c;
+    --on-accent: #f3efe5;
+    --flag:      #9a4f28;   /* used once — echoes the app's data-quality orange, not the accent */
+
+    --shadow: 0 1px 1px rgba(25,28,36,.04), 0 14px 40px -22px rgba(25,28,36,.28);
+    --measure: 34em;
+    --gap: clamp(3.25rem, 6.5vw, 5rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #14161c;
+      --card:      #1c1f28;
+      --frame:     #23262f;
+      --ink:       #e9e4d6;
+      --muted:     #a29d8d;
+      --faint:     #8b8676;
+      --rule:      #333747;
+      --hair:      #2a2e39;
+      --accent:    #9fb3df;
+      --on-accent: #14161c;
+      --flag:      #dd9160;
+      --shadow: 0 1px 1px rgba(0,0,0,.35), 0 20px 46px -22px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:     #14161c;
+    --card:      #1c1f28;
+    --frame:     #23262f;
+    --ink:       #e9e4d6;
+    --muted:     #a29d8d;
+    --faint:     #8b8676;
+    --rule:      #333747;
+    --hair:      #2a2e39;
+    --accent:    #9fb3df;
+    --on-accent: #14161c;
+    --flag:      #dd9160;
+    --shadow: 0 1px 1px rgba(0,0,0,.35), 0 20px 46px -22px rgba(0,0,0,.65);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: 43rem; margin: 0 auto; padding: 0 1.5rem; }
+
+  /* ---------- type ---------- */
+  h1, h2, h3 {
+    font-family: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.006em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h2 { font-size: clamp(1.5rem, 1.05rem + 1.9vw, 2rem); }
+  h3 { font-size: 1.22rem; }
+
+  p { margin: 0 0 1rem; max-width: var(--measure); text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+  a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+  a:hover { text-decoration-thickness: 2px; }
+  strong { font-weight: 600; }
+
+  .lead { font-size: 1.14rem; max-width: 30em; color: var(--ink); }
+  .muted { color: var(--muted); }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 0.85rem;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* ---------- layout: one flow, spacing owned by the gap ---------- */
+  main { display: flex; flex-direction: column; gap: var(--gap); }
+  main > * { margin: 0; }
+
+  /* rule motif: a hairline with a tick at each end — the range bar, abstracted */
+  hr.rule {
+    border: 0;
+    height: 1px;
+    background: var(--rule);
+    position: relative;
+    overflow: visible;
+  }
+  hr.rule::before, hr.rule::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    width: 1px;
+    height: 7px;
+    background: var(--rule);
+  }
+  hr.rule::before { left: 0; }
+  hr.rule::after  { right: 0; }
+
+  /* ---------- masthead ---------- */
+  header { padding-top: clamp(3rem, 8vw, 5.5rem); }
+
+  .brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 2rem; }
+  .brand img { width: 44px; height: 44px; border-radius: 10px; box-shadow: var(--shadow); }
+  .brand .name {
+    font-family: "Newsreader", ui-serif, Georgia, serif;
+    font-weight: 500;
+    font-size: 1.4rem;
+    letter-spacing: -0.012em;
+  }
+
+  h1.thesis {
+    font-weight: 400;
+    font-size: clamp(1.85rem, 1.15rem + 3vw, 2.9rem);
+    line-height: 1.16;
+    letter-spacing: -0.014em;
+    margin: 0 0 1.5rem;
+    max-width: 15ch;
+  }
+  h1.thesis em { font-style: italic; color: var(--muted); }
+
+  ul.spec {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+  ul.spec li { white-space: nowrap; }
+
+  /* ---------- the live disclosure row — the app's most characteristic object ---------- */
+  .filing {
+    background: var(--card);
+    border: 1px solid var(--hair);
+    border-radius: 16px;
+    padding: 1.1rem 1.2rem 1rem;
+    box-shadow: var(--shadow);
+    margin-top: 2.4rem;
+    max-width: 29rem;
+  }
+  .filing-top { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    border: 1.2px solid var(--accent);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .sym {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 500;
+    font-size: 1.02rem;
+    letter-spacing: 0.01em;
+  }
+  .chip {
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 0.09rem 0.38rem;
+    border-radius: 4px;
+    background: var(--hair);
+    color: var(--muted);
+  }
+  .asset { color: var(--muted); font-size: 0.93rem; margin: 0.5rem 0 0.65rem; }
+  .attrib { font-size: 0.93rem; display: flex; align-items: center; gap: 0.38rem; flex-wrap: wrap; }
+  .attrib .who { font-weight: 500; }
+  .attrib .sep { color: var(--faint); }
+  .rangebar {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0.75rem 0 0.5rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+  .rangebar .track {
+    flex: 1;
+    height: 0;
+    border-top: 1.5px dashed var(--muted);
+    position: relative;
+    margin: 0 2px;
+  }
+  .rangebar .track::before, .rangebar .track::after {
+    content: "";
+    position: absolute;
+    top: -4px;
+    width: 1.5px;
+    height: 9px;
+    background: var(--muted);
+  }
+  .rangebar .track::before { left: 0; }
+  .rangebar .track::after  { right: 0; }
+  .timing { font-size: 0.82rem; color: var(--faint); }
+  .filing-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--faint);
+    max-width: 29rem;
+    margin-top: 0.7rem;
+  }
+
+  /* ---------- feature index (a ruled list, like a report's contents) ---------- */
+  .index dl {
+    margin: 1.4rem 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 1.5rem;
+  }
+  .index dt, .index dd {
+    padding: 0.68rem 0;
+    border-top: 1px solid var(--hair);
+  }
+  .index dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .index dd { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .index dt:first-of-type, .index dd:first-of-type { border-top: 0; }
+  @media (max-width: 33rem) {
+    .index dl { grid-template-columns: 1fr; }
+    .index dd { border-top: 0; padding-top: 0; padding-bottom: 1rem; }
+  }
+
+  /* ---------- feature blocks ---------- */
+  .feature { display: grid; grid-template-columns: 1fr; gap: 1.75rem; align-items: start; }
+  @media (min-width: 45rem) {
+    .feature { grid-template-columns: 1fr 17.5rem; gap: 3rem; }
+    .feature.flip { grid-template-columns: 17.5rem 1fr; }
+    .feature.flip .copy { order: 2; }
+  }
+
+  .phone {
+    width: 100%;
+    max-width: 16rem;
+    margin: 0 auto;
+    background: var(--frame);
+    border: 1px solid var(--rule);
+    border-radius: 34px;
+    padding: 7px;
+    box-shadow: var(--shadow);
+  }
+  .phone img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 27px;
+  }
+  figure { margin: 0; }
+  figcaption {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.71rem;
+    letter-spacing: 0.03em;
+    color: var(--faint);
+    text-align: center;
+    margin-top: 0.7rem;
+  }
+
+  /* ---------- icons ---------- */
+  .icons { display: flex; gap: 1.4rem; flex-wrap: wrap; margin-top: 1.5rem; }
+  .icons figure { text-align: center; }
+  .icons img { width: 76px; height: 76px; border-radius: 17px; box-shadow: var(--shadow); }
+  .icons figcaption { margin-top: 0.5rem; }
+
+  /* ---------- pull statement ---------- */
+  blockquote.stance {
+    border-left: 2px solid var(--accent);
+    padding-left: 1.35rem;
+    margin: 0;
+  }
+  blockquote.stance p {
+    font-family: "Newsreader", ui-serif, Georgia, serif;
+    font-size: 1.3rem;
+    line-height: 1.42;
+    color: var(--ink);
+    font-weight: 400;
+    max-width: 22em;
+    margin-bottom: 0.7rem;
+  }
+  blockquote.stance cite {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    font-style: normal;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* ---------- colophon ---------- */
+  .colophon dl {
+    margin: 1.35rem 0 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 1.5rem;
+  }
+  .colophon dt, .colophon dd {
+    padding: 0.62rem 0;
+    border-top: 1px solid var(--hair);
+  }
+  .colophon dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--faint);
+  }
+  .colophon dd { margin: 0; font-size: 0.95rem; color: var(--muted); }
+  .colophon dt:first-of-type, .colophon dd:first-of-type { border-top: 0; }
+  @media (max-width: 34rem) {
+    .colophon dl { grid-template-columns: 1fr; }
+    .colophon dd { border-top: 0; padding-top: 0; }
+  }
+
+  ul.never { list-style: none; padding: 0; margin: 1.1rem 0 0; }
+  ul.never li {
+    position: relative;
+    padding: 0.5rem 0 0.5rem 1.4rem;
+    color: var(--muted);
+    font-size: 0.96rem;
+    border-top: 1px solid var(--hair);
+  }
+  ul.never li:first-child { border-top: 0; }
+  ul.never li::before { content: "—"; position: absolute; left: 0; color: var(--faint); }
+
+  footer {
+    padding: 2.25rem 0 3.5rem;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    color: var(--faint);
+    line-height: 1.9;
+  }
+  footer .row { display: flex; flex-wrap: wrap; gap: 0.3rem 1.3rem; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(12px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+  }
+</style>
+
+<div class="wrap">
+  <main>
+
+    <header>
+      <div class="brand">
+        <img src="assets/iconNavy.png" width="44" height="44" alt="">
+        <span class="name">CapitolSketch</span>
+      </div>
+
+      <h1 class="thesis">The stock trades Congress discloses. <em>Read from the primary record, on your phone.</em></h1>
+
+      <ul class="spec">
+        <li>iPhone &amp; iPad</li>
+        <li>Free</li>
+        <li>No account</li>
+        <li>No ads &middot; no tracking</li>
+        <li>Works offline</li>
+      </ul>
+
+      <figure class="filing" role="figure" aria-label="A disclosed trade, as CapitolSketch shows it: Jonathan Jackson, a partial sale of ViaSat common stock, disclosed range one thousand one to fifteen thousand dollars, disclosed six days after the transaction.">
+        <div class="filing-top" aria-hidden="true">
+          <span class="badge">&darr; Sold (partial)</span>
+          <span class="sym">VSAT</span>
+          <span class="chip">ST</span>
+        </div>
+        <div class="asset" aria-hidden="true">ViaSat, Inc. &mdash; Common Stock</div>
+        <div class="attrib" aria-hidden="true">
+          <span class="who">Jonathan Jackson</span>
+          <span class="chip">D</span><span class="chip">House</span>
+          <span class="sep">&middot;</span> Joint
+        </div>
+        <div class="rangebar" aria-hidden="true">
+          <span class="tnum">$1,001</span><span class="track"></span><span class="tnum">$15,000</span>
+        </div>
+        <div class="timing" aria-hidden="true">Traded Aug 28, 2026 &middot; disclosed 6 days later</div>
+      </figure>
+      <p class="filing-note">One real row, rebuilt. The bracket is the only figure the form states.</p>
+    </header>
+
+    <hr class="rule">
+
+    <section>
+      <p class="eyebrow">What it is</p>
+      <h2>The trades Congress is required to disclose</h2>
+      <p class="lead">Members must report every stock trade they, a spouse, or a dependent make &mdash; within 45 days, in a public filing.</p>
+      <p>CapitolSketch reads those filings, House and Senate, and lays every disclosed trade out in one chronological feed: who traded, what, when, the dollar bracket, and how many days passed before it was disclosed. Every row links straight to the original document.</p>
+      <p>It is not a trading app, a prediction engine, or a scoreboard. It restates the public record and stops there.</p>
+
+      <div class="index">
+        <dl>
+          <dt>Feed</dt>            <dd>Every disclosed trade, newest first &mdash; or reordered by when it was <em>disclosed</em>.</dd>
+          <dt>What stands out</dt> <dd>The pattern in the current snapshot, in one plain sentence.</dd>
+          <dt>Source links</dt>   <dd>Every figure taps through to the House Clerk PDF or the Senate eFD page.</dd>
+          <dt>Watchlist</dt>      <dd>Add the tickers you hold; get a local alert when a member trades one.</dd>
+          <dt>Members</dt>        <dd>All 164 filers, with party, chamber, seat, and committee assignments.</dd>
+          <dt>Widgets</dt>        <dd>The latest filings, or your watchlist hits, on the Home &amp; Lock Screen.</dd>
+        </dl>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section class="feature reveal">
+      <div class="copy">
+        <p class="eyebrow">The feed</p>
+        <h2>One feed, the same for everyone</h2>
+        <p>No ranking, no personalization &mdash; the list is the whole public data set in one order. Nothing is selected or reordered because of what you happen to hold.</p>
+        <p>Each row carries a plain <span class="mono">D</span>&thinsp;/&thinsp;<span class="mono">R</span> tag and a <span class="mono">House</span>&thinsp;/&thinsp;<span class="mono">Senate</span> tag &mdash; never a colour. Switch to <strong>Just disclosed</strong> to sort by filing date, the part that is actually time-sensitive.</p>
+      </div>
+      <figure>
+        <div class="phone"><img src="assets/01-feed.jpg" width="780" height="1610" loading="lazy" alt="The Disclosures feed: 12,702 transactions, a Recent trades / Just disclosed toggle, the What stands out card, and trade rows carrying party and chamber tags."></div>
+        <figcaption>Disclosures</figcaption>
+      </figure>
+    </section>
+
+    <section class="feature flip reveal">
+      <figure>
+        <div class="phone"><img src="assets/02-standouts.jpg" width="780" height="1610" loading="lazy" alt="The What stands out screen. It opens: 481 trades were disclosed more than a year after they happened — the STOCK Act allows 45 days. Below, a Biggest trades list."></div>
+        <figcaption>What stands out</figcaption>
+      </figure>
+      <div class="copy">
+        <p class="eyebrow">What stands out</p>
+        <h2>A finding, not a leaderboard</h2>
+        <p>The screen opens with the most notable thing in the current snapshot, stated as a fact you can check: <span style="color:var(--flag)">how many trades were disclosed more than a year late</span>, how many landed in the form's top brackets.</p>
+        <p>Below that: biggest trades, longest disclosure gaps, most widely traded stocks. Each list is a plain count. Nothing is scored against anything else.</p>
+      </div>
+    </section>
+
+    <section class="feature reveal">
+      <div class="copy">
+        <p class="eyebrow">The record</p>
+        <h2>Every figure links to the filing</h2>
+        <p>Amounts are ranges because ranges are all the form requires &mdash; never an invented exact figure, never a share count. The disclosure lag is on every row.</p>
+        <p>One tap opens the source: a US House Clerk PDF, or a US Senate eFD page. The detail screen names the filing it was transcribed from and tells you to check anything that matters against it.</p>
+      </div>
+      <figure>
+        <div class="phone"><img src="assets/06-detail.jpg" width="780" height="1610" loading="lazy" alt="A disclosure detail for WFC, bought, disclosed range $1,001 to $15,000, with a prominent View the source filing button. Rows read Member: Mitch McConnell, Party: Republican, Chamber: Senate, Account: Spouse."></div>
+        <figcaption>Disclosure &middot; a Senate filing</figcaption>
+      </figure>
+    </section>
+
+    <section class="feature flip reveal">
+      <figure>
+        <div class="phone"><img src="assets/03-watchlist.jpg" width="780" height="1610" loading="lazy" alt="The Watchlist screen: ticker chips for AAPL, BE, MSFT and NVDA, a followed member, and 496 disclosed trades that match."></div>
+        <figcaption>Watchlist</figcaption>
+      </figure>
+      <div class="copy">
+        <p class="eyebrow">Watchlist</p>
+        <h2>It stays on your phone</h2>
+        <p>Add the tickers you own and the members you want to follow. When a new filing matches, CapitolSketch tells you &mdash; with a notification that only restates the public record.</p>
+        <p>Your list is never uploaded. Not as a list, not as a hash, not as a count. No request the app makes changes based on it.</p>
+      </div>
+    </section>
+
+    <section class="feature reveal">
+      <div class="copy">
+        <p class="eyebrow">Members</p>
+        <h2>The whole Congress, one plain list</h2>
+        <p>164 filers across both chambers, each with party, chamber, seat, and the committees they sit on &mdash; drawn from public congressional data, shown as a fact about the person and never matched against a trade.</p>
+        <p>Filter the feed to one chamber, one direction, one dollar floor, or one state.</p>
+      </div>
+      <figure>
+        <div class="phone"><img src="assets/04-members.jpg" width="780" height="1610" loading="lazy" alt="The Members list: 164 members with disclosed trades, each row a monogram, a name, a line reading party, chamber and seat, and a disclosed-trade count."></div>
+        <figcaption>Members</figcaption>
+      </figure>
+    </section>
+
+    <section class="feature flip reveal">
+      <figure>
+        <div class="phone"><img src="assets/05-settings.jpg" width="780" height="1610" loading="lazy" alt="Settings: the CapitolSketch serif wordmark, House &amp; Senate · public record, a System / Light / Dark control, and three app icons — Navy, Paper, Civic Red — each a Capitol dome."></div>
+        <figcaption>Settings</figcaption>
+      </figure>
+      <div class="copy">
+        <p class="eyebrow">Craft</p>
+        <h2>Calm by default</h2>
+        <p>No account. No sign-in. No ads. No analytics. No brokerage connection. The app downloads one public snapshot &mdash; the same file for everyone &mdash; and everything else happens on the device.</p>
+        <p>Light, dark, and system. Three app icons. A version line that reads straight from the build.</p>
+        <div class="icons">
+          <figure><img src="assets/iconNavy.png" width="76" height="76" loading="lazy" alt=""><figcaption>Navy</figcaption></figure>
+          <figure><img src="assets/iconPaper.png" width="76" height="76" loading="lazy" alt=""><figcaption>Paper</figcaption></figure>
+          <figure><img src="assets/iconRed.png" width="76" height="76" loading="lazy" alt=""><figcaption>Civic Red</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section class="colophon">
+      <p class="eyebrow">How the data works</p>
+      <dl>
+        <dt>No backend</dt>
+        <dd>There is no server. A build-time program reads the primary sources and bakes one JSON snapshot that ships inside the app.</dd>
+        <dt>Same file for everyone</dt>
+        <dd>Two phones on the same version download the same file and make the same requests, in the same order. No request is shaped by the watchlist.</dd>
+        <dt>Kept current</dt>
+        <dd>On device, the app asks the House Clerk's own index which filings are new and reads only those PDFs &mdash; directly, over HTTPS, and nothing else.</dd>
+        <dt>Party &amp; committees</dt>
+        <dd>From the open <span class="mono">congress-legislators</span> dataset, resolved once at build time and named in the App Review notes.</dd>
+        <dt>Senate paper filings</dt>
+        <dd>Hand-marked carbon-copy scans that machine reading can't do reliably. They are counted and disclosed as missing &mdash; never invented.</dd>
+      </dl>
+    </section>
+
+    <hr class="rule">
+
+    <section>
+      <blockquote class="stance">
+        <p>We'll tell you something happened. We'll never tell you what to do about it.</p>
+        <cite>CapitolSketch &mdash; Settings &rsaquo; Important</cite>
+      </blockquote>
+      <p class="eyebrow" style="margin-top:2.4rem">What it will never be</p>
+      <ul class="never">
+        <li>No investment advice, predictions, or simulated trading</li>
+        <li>No party colour, no party aggregate, no &ldquo;who's winning&rdquo;</li>
+        <li>No account, no analytics, no third-party SDK, no background fetch</li>
+      </ul>
+    </section>
+
+    <footer>
+      <div class="row">
+        <span>US House Clerk &middot; US Senate eFD</span>
+        <span>Public domain</span>
+        <span>Every figure links to its source</span>
+      </div>
+      <div class="row" style="margin-top:.5rem">
+        <span>Nothing here is investment advice.</span>
+      </div>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    try {
+      var t = localStorage.getItem("cs-theme");
+      if (t === "dark" || t === "light") root.setAttribute("data-theme", t);
+    } catch (e) {}
+
+    var reveals = document.querySelectorAll(".reveal");
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || !("IntersectionObserver" in window)) {
+      reveals.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach(function (el) { io.observe(el); });
+  })();
+</script>
