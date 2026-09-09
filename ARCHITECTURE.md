@@ -155,7 +155,7 @@ flowchart LR
 
     s1 & s2 & s3 --> seedgen["swift run seedgen --years 2025,2026 --senate<br/>--out CapitolSketch/Resources/seed-filings.json"]
     seedgen --> review{"review the JSON diff<br/>row counts · coverage report<br/>new / removed trades"}
-    review -->|"looks right"| commit["git commit seed-filings.json<br/>+ bump CURRENT_PROJECT_VERSION in project.yml<br/>+ AboutView doc · METADATA What's New"]
+    review -->|"looks right"| commit["git commit seed-filings.json<br/>+ bump CURRENT_PROJECT_VERSION in project.yml<br/>+ AboutView doc · release notes"]
     review -->|"anomaly"| seedgen
 
     commit --> push["push to github.com/AvaJ845/CapitolSketch (main)"]

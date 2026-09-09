@@ -46,3 +46,7 @@ Signing.xcconfig
 .env
 .env.*
 secrets.*
+
+# Internal working docs — go-to-market strategy, App Store metadata,
+# coverage design notes. Kept on disk, never published.
+_private/

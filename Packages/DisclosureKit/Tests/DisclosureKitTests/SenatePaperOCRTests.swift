@@ -6,7 +6,7 @@ import Testing
 /// Pins the Senate paper-OCR finding: Vision recovers the *printed* text on the scanned
 /// carbon form — filer, dates, asset names — but not the hand-drawn `X` that carries the
 /// dollar amount. So paper filings are located and their pages counted, but not turned
-/// into transactions. See `SENATE.md`.
+/// into transactions. See `_private/SENATE.md`.
 @Suite("Senate paper OCR — recovers text, not amounts")
 struct SenatePaperOCRTests {
 
@@ -41,7 +41,7 @@ struct SenatePaperOCRTests {
 
         // A transaction row is one that carries a date. None of them should also carry a
         // resolvable dollar bracket — the amount is an unread X in a column. If this ever
-        // starts passing with a real bracket, revisit the paper parser in SENATE.md.
+        // starts passing with a real bracket, revisit the paper parser in _private/SENATE.md.
         let datedRows = lines.filter {
             $0.range(of: #"\d{1,2}/\d{1,2}/\d{2}"#, options: .regularExpression) != nil
         }

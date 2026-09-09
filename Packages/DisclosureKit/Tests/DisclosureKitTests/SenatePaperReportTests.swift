@@ -3,7 +3,7 @@ import Testing
 @testable import DisclosureKit
 
 /// The paper-report page carries the scanned filing as carousel GIFs. Locating them in
-/// page order is the first step of the OCR path in `SENATE.md`; parsing the images is not
+/// page order is the first step of the OCR path in `_private/SENATE.md`; parsing the images is not
 /// done yet.
 @Suite("Senate paper report image extraction")
 struct SenatePaperReportTests {

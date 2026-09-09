@@ -146,7 +146,7 @@ if opts.senate {
         if let s = senateOutput {
             log("Senate: \(s.trades.count) rows from \(s.members.count) senators "
                 + "(\(s.stats.filingsWithoutText.count) paper filings not machine-readable "
-                + "— counted as unreadable, same as House scans; see SENATE.md)")
+                + "— counted as unreadable, same as House scans; see _private/SENATE.md)")
         }
     } catch {
         log("Senate: FAILED — \(error.localizedDescription). Shipping House-only.")

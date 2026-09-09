@@ -13,7 +13,7 @@ import Foundation
 /// that order is preserved here.
 ///
 /// This only locates the images. Turning them into transactions is the OCR + spatial
-/// parser work tracked in `SENATE.md` — the Senate paper form is a column grid where an
+/// parser work tracked in `_private/SENATE.md` — the Senate paper form is a column grid where an
 /// `X` in one of several amount-bracket columns carries the figure, so `PTRParser` (which
 /// anchors on a House text row) cannot read it.
 public enum SenatePaperReport {

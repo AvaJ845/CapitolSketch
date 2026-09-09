@@ -1,6 +1,6 @@
 // Senate eFD paper-filing OCR. Build-time only (`seedgen` / the test target); the
 // shipping app never runs this. See `SenatePaperReport` for how the page images are
-// located, and `SENATE.md` for why paper filings are still not turned into transactions.
+// located, and `_private/SENATE.md` for why paper filings are still not turned into transactions.
 #if SEEDGEN && canImport(Vision)
 import Foundation
 import Vision

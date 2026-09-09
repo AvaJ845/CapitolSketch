@@ -4,14 +4,13 @@ An iOS app that tracks stock trades disclosed by members of the US Congress, wit
 personal watchlist that tells you when a member trades a ticker you hold.
 
 House and Senate. Read-only. No brokerage, no account, no analytics. Nothing here is
-investment advice. Senate paper filings are counted but not machine-readable — see
-`SENATE.md`.
+investment advice. Senate paper filings are counted but not machine-readable (see
+[Known limitations](#known-limitations)).
 
 App Store name: **CapitolSketch: Congress Trade**. Home Screen: **CapitolSketch**.
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — the system, the code, the build pipeline, the runtime data flow (diagrams).
 - [`SECURITY.md`](SECURITY.md) — attack surface and how to report a vulnerability.
-- [`SENATE.md`](SENATE.md) — how Senate coverage works and what it cannot read.
 - [`LICENSE`](LICENSE) — source is published for review; it is not licensed for reuse.
 
 ## Why it is not a Pelosi tracker
@@ -161,7 +160,7 @@ correct owner, stock-vs-option split, dollar range, and description.
 Senate electronic PTRs come from the eFD portal as HTML, not PDF, so they take a separate
 parser (`SenatePTRParser`) but land in the same `Trade` model. Senate *paper* PTRs are
 scanned images with hand-marked amount brackets that OCR cannot read reliably; `seedgen`
-counts them and records the gap, the same as an unreadable House scan (see `SENATE.md`).
+counts them and records the gap, the same as an unreadable House scan.
 
 ## Known limitations
 

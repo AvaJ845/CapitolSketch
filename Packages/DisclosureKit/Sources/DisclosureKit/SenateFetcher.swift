@@ -13,7 +13,7 @@ import FoundationNetworking
 /// **Build-time only** — `seedgen` calls this on a Mac; the app never does. One CSRF
 /// handshake, then the session is reused for the index query and every report fetch.
 /// Electronic reports parse now; paper reports are recorded as incomplete, with their
-/// scanned-page count, until the OCR + spatial-parser path (`SENATE.md`) lands.
+/// scanned-page count, until the OCR + spatial-parser path (`_private/SENATE.md`) lands.
 public struct SenateFetcher: Sendable {
 
     private let directory: MemberDirectory?
@@ -57,7 +57,7 @@ public struct SenateFetcher: Sendable {
             if row.isPaper {
                 // Coverage-honest: a paper filing yields no transactions yet. Fetch the
                 // report page anyway to record how many scanned pages it has — the input
-                // the OCR + spatial-parser work in SENATE.md will consume.
+                // the OCR + spatial-parser work in _private/SENATE.md will consume.
                 stats.filingsWithoutText.append(row.uuid)
                 var note = "paper filing — scanned page images; not yet parsed"
                 if let url = ref.documentURL,
