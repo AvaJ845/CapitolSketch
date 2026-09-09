@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CapitolSketch — Privacy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CapitolSketch collects nothing. No account, no analytics, no third-party SDKs, no ads. Your watchlist stays on your device.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3efe5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161c" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="index, follow">
+
+<link rel="canonical" href="https://avaj845.github.io/CapitolSketch/privacy.html">
+<link rel="icon" href="assets/iconNavy.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/iconNavy.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<script>
+  try {
+    var t = localStorage.getItem("cs-theme");
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {}
+</script>
+
+<style>
+  :root {
+    color-scheme: light dark;
+    --paper:     #f3efe5;
+    --card:      #fcfbf7;
+    --ink:       #191c24;
+    --muted:     #625c4c;
+    --faint:     #736d5b;
+    --rule:      #d7cfbd;
+    --hair:      #e5dece;
+    --accent:    #26365c;
+    --on-accent: #f3efe5;
+    --shadow: 0 1px 1px rgba(25,28,36,.04), 0 16px 44px -24px rgba(25,28,36,.30);
+    --measure: 34em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14161c; --card: #1c1f28; --ink: #eae5d8; --muted: #a49f8f;
+      --faint: #8c8777; --rule: #343849; --hair: #2b2f3a; --accent: #a1b5e0;
+      --on-accent: #14161c;
+      --shadow: 0 1px 1px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14161c; --card: #1c1f28; --ink: #eae5d8; --muted: #a49f8f;
+    --faint: #8c8777; --rule: #343849; --hair: #2b2f3a; --accent: #a1b5e0;
+    --on-accent: #14161c;
+    --shadow: 0 1px 1px rgba(0,0,0,.35), 0 22px 50px -24px rgba(0,0,0,.7);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 0 1.5rem; }
+  main { padding: clamp(3rem, 8vw, 5rem) 0 4rem; }
+
+  h1, h2 {
+    font-family: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    line-height: 1.16;
+    letter-spacing: -0.008em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    font-weight: 400;
+    font-size: clamp(2rem, 1.4rem + 2.4vw, 2.7rem);
+    letter-spacing: -0.016em;
+  }
+  h2 {
+    font-size: 1.2rem;
+    margin: 2.6rem 0 0.6rem;
+  }
+  p { margin: 0 0 1rem; max-width: var(--measure); text-wrap: pretty; }
+  a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { font-weight: 600; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
+
+  .brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.4rem; }
+  .brand img { width: 36px; height: 36px; border-radius: 9px; box-shadow: var(--shadow); }
+  .brand a {
+    font-family: "Newsreader", ui-serif, Georgia, serif;
+    font-weight: 500;
+    font-size: 1.2rem;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 0.85rem;
+  }
+  .dated { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.8rem; color: var(--faint); margin: 0.4rem 0 2.4rem; }
+
+  .lede {
+    font-family: "Newsreader", ui-serif, Georgia, serif;
+    font-size: clamp(1.2rem, 1.05rem + 0.7vw, 1.45rem);
+    line-height: 1.45;
+    color: var(--ink);
+    max-width: 26em;
+    margin: 1.4rem 0 0;
+  }
+
+  ul { margin: 0 0 1rem; padding-left: 0; list-style: none; max-width: var(--measure); }
+  ul li {
+    position: relative;
+    padding: 0.4rem 0 0.4rem 1.3rem;
+    border-top: 1px solid var(--hair);
+  }
+  ul li:first-child { border-top: 0; }
+  ul li::before { content: "\2014"; position: absolute; left: 0; color: var(--faint); }
+
+  hr { border: 0; height: 1px; background: var(--rule); margin: 2.8rem 0; }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.76rem;
+    color: var(--faint);
+    line-height: 1.9;
+  }
+  footer a { color: var(--faint); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <main>
+    <div class="brand">
+      <img src="assets/iconNavy.png" width="36" height="36" alt="">
+      <a href="./">CapitolSketch</a>
+    </div>
+
+    <p class="eyebrow">Privacy Policy</p>
+    <h1>CapitolSketch collects nothing.</h1>
+    <p class="dated">Effective September 9, 2026</p>
+
+    <p class="lede">There is no account, no analytics, no advertising, and no third-party
+      code in this app. Nothing you do in it is sent anywhere.</p>
+
+    <h2>What we collect</h2>
+    <p><strong>Nothing.</strong> CapitolSketch has no sign-in and no user accounts. It
+      contains no analytics, no crash-reporting SDK, no advertising SDK, and no
+      third-party frameworks of any kind. Its Apple App Privacy label is
+      <strong>Data Not Collected</strong>.</p>
+
+    <h2>What stays on your device</h2>
+    <p>Everything you set in the app is stored only on your device, in the app's private
+      storage (an iOS App Group container). It is never uploaded, and we never see it:</p>
+    <ul>
+      <li>the ticker symbols on your watchlist</li>
+      <li>the members you follow</li>
+      <li>which disclosures you have already seen (so alerts don't repeat)</li>
+      <li>your appearance and feed-order preferences</li>
+    </ul>
+    <p>Deleting the app deletes all of it. There is no server copy because there is no
+      server.</p>
+
+    <h2>Network activity</h2>
+    <p>To show new filings, the app contacts one host: the U.S. House Clerk's public
+      disclosure server (<span class="mono">disclosures-clerk.house.gov</span>). It
+      downloads the Clerk's public filing index and individual public PDF filings — the
+      same files for every user. <strong>No request the app makes is shaped by your
+      watchlist, your followed members, or anything else about you.</strong> Tapping a
+      "view the source filing" link opens that public document in Safari.</p>
+    <p>Senate disclosure data is compiled into the app before release and ships inside it;
+      the app does not contact the Senate system at runtime.</p>
+
+    <h2>Notifications</h2>
+    <p>If you turn on watchlist alerts, the app schedules <strong>local</strong>
+      notifications on your device when a newly downloaded public filing matches a ticker
+      or member you chose. The matching happens on your device, against data already on
+      it. No notification service receives your list.</p>
+
+    <h2>Children</h2>
+    <p>The app is rated 4+ and is safe for all ages. Because it collects no data, it
+      collects no data from children.</p>
+
+    <h2>Data sharing and sale</h2>
+    <p>We do not share, sell, rent, or trade personal information, because we do not have
+      any. There is no data to disclose to third parties, and none has ever been
+      transferred.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If this policy changes, the new version will be posted at this URL with a new
+      effective date. Material changes will also be noted in the app's release notes.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about privacy: <a href="mailto:avaresearchLLC@gmail.com">avaresearchLLC@gmail.com</a>.
+      Security reports: see <a href="https://github.com/AvaJ845/CapitolSketch/blob/main/SECURITY.md">SECURITY.md</a>.</p>
+
+    <footer>
+      CapitolSketch is published by Ava Research LLC. Nothing in the app is investment advice.<br>
+      <a href="./">Back to CapitolSketch</a>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>
