@@ -9,6 +9,11 @@ investment advice. Senate paper filings are counted but not machine-readable —
 
 App Store name: **CapitolSketch: Congress Trade**. Home Screen: **CapitolSketch**.
 
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — the system, the code, the build pipeline, the runtime data flow (diagrams).
+- [`SECURITY.md`](SECURITY.md) — attack surface and how to report a vulnerability.
+- [`SENATE.md`](SENATE.md) — how Senate coverage works and what it cannot read.
+- [`LICENSE`](LICENSE) — source is published for review; it is not licensed for reuse.
+
 ## Why it is not a Pelosi tracker
 
 The idea started as a Nancy Pelosi holdings tracker. Two findings redirected it:
@@ -27,6 +32,10 @@ on something Autopilot does not sell: a read-only, ad-free, no-brokerage-connect
 with alerts scoped to *your* holdings.
 
 ## Architecture
+
+Full diagrams — system, code layers with the `SEEDGEN` compile boundary, the build &
+release pipeline, and the runtime sequence — are in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+The layout:
 
 ```
 Packages/DisclosureKit/   shared parser, models, incremental refresh (iOS + Mac)
@@ -110,12 +119,15 @@ roster has them.
 ## Building the app
 
 ```bash
-/Users/dj/bin/xcodegen generate
+xcodegen generate
 open CapitolSketch.xcodeproj
 ```
 
-Requires Xcode 26 / iOS 18+ deployment target. Never hand-edit the `.xcodeproj`;
-regenerate it from `project.yml`.
+Requires [XcodeGen](https://github.com/yonaskolb/XcodeGen) and Xcode 26 / iOS 18+
+deployment target. The `.xcodeproj` is generated and git-ignored — never hand-edit it,
+regenerate it from `project.yml`. Signing uses the team in `project.yml`
+(`DEVELOPMENT_TEAM`); to build against your own, add a git-ignored `Local.xcconfig` or
+override it in Xcode rather than committing the change.
 
 Parser tests live in `Packages/DisclosureKit/Tests` (real PTR PDF fixtures, including
 Pelosi DocID 20035143):
@@ -184,6 +196,10 @@ one passes, the underlying data supply for this entire category of app disappear
 
 ## Data source and licence
 
-All data comes from US House Clerk and US Senate financial disclosure filings, which are
-public domain. Every transaction in the app links back to its source — a House Clerk PDF
-or a Senate eFD page.
+All trade data comes from US House Clerk and US Senate financial disclosure filings, which
+are public domain. Identifier and committee reference data is from
+`unitedstates/congress-legislators` (CC0). Every transaction in the app links back to its
+source — a House Clerk PDF or a Senate eFD page.
+
+The **code** in this repository is published for transparency and review, not for reuse —
+see [`LICENSE`](LICENSE). © 2026 Ava Research LLC, all rights reserved.

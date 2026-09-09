@@ -1,0 +1,36 @@
+CapitolSketch — All Rights Reserved
+
+Copyright (c) 2026 Ava Research LLC. All rights reserved.
+
+This source code is published for transparency and review — so anyone can verify
+what the app does with data and with the network. It is not licensed for reuse.
+
+You MAY:
+  - read, audit, and reference this code;
+  - open issues and submit pull requests to this repository;
+  - build and run it locally for the purpose of evaluating or contributing.
+
+You MAY NOT, without prior written permission from the copyright holder:
+  - redistribute this code or substantial portions of it, modified or not;
+  - publish an app, or any other product or service, derived from it;
+  - use it for any commercial purpose.
+
+Contributions submitted to this repository are licensed to the copyright holder
+for use in the project under these same terms.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Nothing in this app is investment advice.
+
+---
+
+The underlying data is not covered by this license. U.S. House Clerk and U.S.
+Senate financial-disclosure filings are public records in the public domain. The
+committee and identifier reference data is from the community-maintained
+`unitedstates/congress-legislators` project, released into the public domain
+under the CC0 1.0 Universal dedication.
