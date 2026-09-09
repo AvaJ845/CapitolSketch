@@ -512,6 +512,25 @@
     letter-spacing: 0.02em;
     margin: 1.4rem 0 0;
   }
+
+  /* ---------- captioned-frame gallery ---------- */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.9rem;
+    margin-top: 1.5rem;
+  }
+  @media (min-width: 34rem) {
+    .gallery-grid { grid-template-columns: repeat(3, 1fr); gap: 1.15rem; }
+  }
+  .gallery-grid img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid var(--hair);
+    box-shadow: var(--shadow);
+  }
 </style>
 </head>
 <body>
@@ -575,6 +594,21 @@
           <dt>Members</dt>        <dd>All 164 filers, with party, chamber, seat, and committee assignments.</dd>
           <dt>Widgets</dt>        <dd>The latest filings, or your watchlist hits, on the Home &amp; Lock Screen.</dd>
         </dl>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <section class="gallery">
+      <p class="eyebrow">A look</p>
+      <h2>What it looks like</h2>
+      <div class="gallery-grid">
+        <img src="assets/shot-1-feed.jpg" width="620" height="1341" loading="lazy" alt="The Disclosures feed, captioned &ldquo;Every trade Congress discloses.&rdquo;">
+        <img src="assets/shot-2-watchlist.jpg" width="620" height="1341" loading="lazy" alt="The Watchlist, captioned &ldquo;Told when they trade a ticker you hold.&rdquo;">
+        <img src="assets/shot-3-settings.jpg" width="620" height="1341" loading="lazy" alt="Settings, captioned &ldquo;Free. No account. No ads. No tracking.&rdquo;">
+        <img src="assets/shot-4-detail.jpg" width="620" height="1341" loading="lazy" alt="A Senate disclosure detail, captioned &ldquo;House and Senate, one standard.&rdquo;">
+        <img src="assets/shot-5-standouts.jpg" width="620" height="1341" loading="lazy" alt="The What stands out screen, captioned &ldquo;The patterns in this snapshot.&rdquo;">
+        <img src="assets/shot-6-members.jpg" width="620" height="1341" loading="lazy" alt="The Members list, captioned &ldquo;The whole Congress, in one plain feed.&rdquo;">
       </div>
     </section>
 
