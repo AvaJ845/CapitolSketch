@@ -131,7 +131,13 @@ struct Provider: AppIntentTimelineProvider {
     private func loadFeed() -> TradeFeed {
         let urls = [SharedContainer.feedFile, SharedContainer.localFeedFile].compactMap { $0 }
         for url in urls {
-            if let feed = decode(url), feed.schemaVersion == TradeFeed.currentSchemaVersion {
+            if let feed = decode(url),
+               feed.schemaVersion == TradeFeed.currentSchemaVersion,
+               // Ignore a degenerate feed built from nothing (empty `indexYears`) so a
+               // widget refresh never seeds — or re-seeds — the shared container from it.
+               // With no usable cache the widget shows its "open the app" state, which is
+               // the intended first-run behaviour.
+               !feed.indexYears.isEmpty {
                 return feed
             }
         }

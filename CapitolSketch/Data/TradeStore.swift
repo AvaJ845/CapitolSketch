@@ -185,6 +185,12 @@ final class TradeStore {
         .compactMap { $0 }
         .compactMap { decode(contentsOf: $0) }
         .filter { $0.schemaVersion == TradeFeed.currentSchemaVersion }
+        // A real snapshot — shipped, or a refresh merged onto one — always carries the
+        // filing years it covers. An empty `indexYears` marks a feed built from nothing
+        // (see `IncrementalRefresher`): drop it so it can never outrank the bundled
+        // snapshot on `generatedAt` and shrink the feed to a handful of rows. If a device
+        // already cached such a file, this heals it on the next launch.
+        .filter { !$0.indexYears.isEmpty }
         .max(by: { $0.generatedAt < $1.generatedAt })
     }
 
