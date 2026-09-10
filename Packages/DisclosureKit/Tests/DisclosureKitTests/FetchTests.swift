@@ -45,6 +45,30 @@ struct FetchTests {
         )
     }
 
+    // MARK: - 0. An empty seed is not something to refresh
+
+    @Test("refresh with an empty seed does nothing and touches no network")
+    func emptySeedBailsBeforeAnyRequest() async {
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { request in
+            Issue.record("no request should be made for an empty seed: \(request.url as Any)")
+            return (StubURLProtocol.response(for: request, status: 500), Data())
+        }
+
+        let outcome = await IncrementalRefresher.refresh(
+            seed: .empty,
+            years: [2026],
+            cacheDirectory: nil,
+            session: StubURLProtocol.makeSession()
+        )
+
+        #expect(outcome.feed == nil)
+        #expect(StubURLProtocol.recordedURLs.isEmpty)
+        // A widget that loaded nothing must not then write a feed with no filing years:
+        // that file would outrank the real bundled snapshot on `generatedAt`.
+        #expect(outcome.report.indexedFilings == 0)
+    }
+
     // MARK: - 1. Oversized index response
 
     @Test("An index response past the size cap is refused, not buffered")

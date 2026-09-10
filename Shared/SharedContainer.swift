@@ -153,7 +153,11 @@ enum SharedContainer {
         for url in [feedFile, localFeedFile].compactMap({ $0 }) {
             guard let data = try? Data(contentsOf: url),
                   let feed = try? decoder.decode(TradeFeed.self, from: data),
-                  feed.schemaVersion == TradeFeed.currentSchemaVersion
+                  feed.schemaVersion == TradeFeed.currentSchemaVersion,
+                  // Skip a degenerate cache (empty `indexYears`, built from nothing): a
+                  // headless "mark everything seen" against a 16-row feed would fire a
+                  // backlog of alerts the moment the real snapshot loads.
+                  !feed.indexYears.isEmpty
             else { continue }
             return feed
         }

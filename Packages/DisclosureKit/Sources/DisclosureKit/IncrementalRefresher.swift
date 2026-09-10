@@ -93,6 +93,16 @@ public enum IncrementalRefresher {
         session: URLSession = .shared
     ) async -> Outcome {
         var report = Report()
+
+        // An incremental refresh brings a *snapshot* up to date. With no snapshot there is
+        // nothing to be incremental against, and a full ingest is explicitly not this
+        // function's job (see the type doc). Bailing here stops a caller that loaded an
+        // empty feed — a widget timeline that fires before the app has ever seeded the
+        // shared container — from fetching a handful of filings and writing them out as a
+        // feed with `indexYears: []` that then outranks the real bundled snapshot on
+        // `generatedAt`.
+        guard !seed.trades.isEmpty else { return Outcome(feed: nil, report: report) }
+
         let years = years ?? FilingIndex.relevantYears()
 
         // 1. What does the Clerk have? One public index, the same for every reader.
