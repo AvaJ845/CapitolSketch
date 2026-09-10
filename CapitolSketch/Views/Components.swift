@@ -20,6 +20,37 @@ struct FilterToolbarLabel: View {
     }
 }
 
+/// A segmented picker that swaps to a menu once the segment labels stop fitting — at the
+/// larger Dynamic Type sizes a segmented control clips a label like "Just disclosed" to
+/// "Just di…" with no way to scale it down. The rest of the app already branches on
+/// `isAccessibilitySize` this way (StatStrip, the member row, AmountView); this pulls the
+/// same line one notch earlier, where the clipping actually starts.
+///
+/// Both the Feed order and the Members order pickers use this so they behave the same.
+struct AdaptiveSegmentedPicker<Value: Hashable>: View {
+    let title: LocalizedStringKey
+    @Binding var selection: Value
+    let options: [(value: Value, label: String)]
+
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        if typeSize >= .xxLarge {
+            picker.pickerStyle(.menu)
+        } else {
+            picker.pickerStyle(.segmented)
+        }
+    }
+
+    private var picker: some View {
+        Picker(title, selection: $selection) {
+            ForEach(options, id: \.value) { option in
+                Text(option.label).tag(option.value)
+            }
+        }
+    }
+}
+
 /// Small tag used for data-quality flags and secondary facts.
 ///
 /// Orange is reserved for "something about this filing's own dates is off". No colour in

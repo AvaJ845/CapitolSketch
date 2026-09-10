@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import CoreSpotlight
 import DisclosureKit
 
 @main
@@ -23,6 +24,13 @@ struct CapitolSketchApp: App {
                 .task {
                     UNUserNotificationCenter.current().delegate = notifications
                     await store.start()
+                    // Make members and frequently-traded tickers findable from system
+                    // search. On-device only; see `SpotlightIndex`.
+                    await SpotlightIndex.rebuild(
+                        members: store.members,
+                        tickers: store.knownTickers,
+                        snapshotDate: store.feed.generatedAt
+                    )
                 }
         }
     }
@@ -49,6 +57,9 @@ struct RootView: View {
     /// A launch argument like `-demo-filing`, so the App Store screenshot set can be shot
     /// from the same Release build (see AppStore/METADATA.md §6).
     @State private var routedMember: Member?
+    /// A Spotlight member tap that arrived before the feed had loaded — resolved to a
+    /// `Member` and shown once `store.isLoading` clears.
+    @State private var pendingSpotlightMemberID: String?
     @State private var splitVisibility: NavigationSplitViewVisibility = .automatic
     /// When the scene last became active and actually ran the refresh + alert scan.
     /// A quick app-switch flurry (Control Center, notification banner, share sheet)
@@ -152,6 +163,20 @@ struct RootView: View {
                 applyPendingIntentRoute()
             }
             .onOpenURL { handle(url: $0) }
+            .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                switch SpotlightIndex.route(for: activity) {
+                case .member(let id):
+                    if let member = store.member(id: id) {
+                        routedMember = member
+                    } else {
+                        pendingSpotlightMemberID = id
+                    }
+                case .ticker(let symbol):
+                    routedTicker = TickerRoute(ticker: symbol)
+                case nil:
+                    break
+                }
+            }
             .onChange(of: notifications.pendingRowID) { _, id in routeToFiling(id) }
             .onChange(of: notifications.pendingDigest) { _, digest in
                 if digest {
@@ -170,6 +195,12 @@ struct RootView: View {
                 routeToFiling(notifications.pendingRowID)
                 openDemoFilingIfRequested()
                 openDemoMemberIfRequested()
+                if let id = pendingSpotlightMemberID, let member = store.member(id: id) {
+                    routedMember = member
+                    pendingSpotlightMemberID = nil
+                } else if !store.isLoading {
+                    pendingSpotlightMemberID = nil
+                }
                 Task { await checkForWatchlistAlerts() }
             }
             .onChange(of: scenePhase) { _, phase in
