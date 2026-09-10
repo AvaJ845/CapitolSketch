@@ -70,6 +70,7 @@ struct WatchlistView: View {
                                     DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                                 }
                                         .disclosureRowChrome()
+                                        .disclosureRowActions(for: trade, store: store, watchlist: watchlist)
                                 }
                             }
                         }
@@ -86,6 +87,7 @@ struct WatchlistView: View {
                                     DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                                 }
                                         .disclosureRowChrome()
+                                        .disclosureRowActions(for: trade, store: store, watchlist: watchlist)
                                 }
                             }
                         } header: {
@@ -103,6 +105,8 @@ struct WatchlistView: View {
                     }
                     .listStyle(.insetGrouped)
                     .gazetteChrome()
+                    .sensoryFeedback(.selection, trigger: watchlist.tickers)
+                    .sensoryFeedback(.selection, trigger: watchlist.followedMemberIDs)
                 }
             }
             .navigationTitle("Watchlist")

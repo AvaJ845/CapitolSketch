@@ -8,21 +8,87 @@ struct TickerCount: Identifiable, Hashable {
     var id: String { ticker }
 }
 
+/// How the Members list is ordered. Both orders show the same members.
+enum MemberSort: String, CaseIterable, Identifiable {
+    case activity, name
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .activity: return "Most active"
+        case .name: return "Name (A–Z)"
+        }
+    }
+}
+
+/// Facets for the Members list — the same kinds the Feed filter offers, so the two
+/// screens stay consistent. Navigation over data already in hand: nothing is fetched.
+struct MemberFilter: Equatable {
+    var parties: Set<Party> = []
+    var chambers: Set<Chamber> = []
+    var states: Set<String> = []
+
+    var isActive: Bool { !parties.isEmpty || !chambers.isEmpty || !states.isEmpty }
+    var activeCount: Int { parties.count + chambers.count + states.count }
+
+    func keeps(_ member: Member) -> Bool {
+        if !parties.isEmpty && !parties.contains(member.party) { return false }
+        if !chambers.isEmpty && !chambers.contains(member.chamber) { return false }
+        if !states.isEmpty && !states.contains(member.state) { return false }
+        return true
+    }
+}
+
 struct MembersView: View {
     @Environment(TradeStore.self) private var store
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var query = ""
+    @State private var sort = MemberSort.activity
+    @State private var filter = MemberFilter()
+    @State private var showingFilters = false
 
     private var rows: [(member: Member, count: Int)] {
-        let all = store.membersByActivity()
+        var all = store.membersByActivity()
+        if sort == .name {
+            all.sort { $0.member.name < $1.member.name }
+        }
+        if filter.isActive {
+            all = all.filter { filter.keeps($0.member) }
+        }
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return all }
         return all.filter { $0.member.name.lowercased().contains(q) || $0.member.state.lowercased() == q }
     }
 
+    private var availableStates: [String] {
+        Set(store.members.map(\.state)).sorted()
+    }
+
+    private var availableChambers: [Chamber] {
+        guard store.isMultiChamber else { return [] }
+        return Chamber.allCases.filter { store.feed.chambersCovered.contains($0) }
+    }
+
+    private var availableParties: [Party] {
+        let present = Set(store.members.map(\.party)).subtracting([.unknown])
+        return Party.allCases.filter { $0 != .unknown && present.contains($0) }
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Picker("Order", selection: $sort) {
+                        ForEach(MemberSort.allCases) { order in
+                            Text(order.label).tag(order)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Member order")
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                }
+
                 Section {
                     ForEach(rows, id: \.member.id) { row in
                         NavigationLink(value: row.member) {
@@ -38,7 +104,9 @@ struct MembersView: View {
                         .disclosureRowChrome()
                     }
                 } header: {
-                    Text("\(rows.count) members with disclosed trades")
+                    Text(filter.isActive
+                         ? "\(rows.count) of \(store.members.count) members"
+                         : "\(rows.count) members with disclosed trades")
                 } footer: {
                     Text("Counts are disclosed transactions in the loaded filing years, not portfolio size.")
                 }
@@ -50,6 +118,26 @@ struct MembersView: View {
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showingFilters = true } label: {
+                        FilterToolbarLabel(activeCount: filter.activeCount)
+                    }
+                    .accessibilityLabel(filter.isActive
+                                        ? "Filters, \(filter.activeCount) active"
+                                        : "Filters")
+                }
+            }
+            .sheet(isPresented: $showingFilters) {
+                MemberFilterSheet(
+                    filter: $filter,
+                    availableParties: availableParties,
+                    availableChambers: availableChambers,
+                    availableStates: availableStates
+                )
+                .presentationDetents([.medium, .large])
+                .tint(Ink.accent)
+            }
         }
     }
 
@@ -86,6 +174,83 @@ struct MembersView: View {
                 count
             }
         }
+    }
+}
+
+/// The Members facet sheet. Same shape as the Feed's `FilterSheet` — a checklist per
+/// facet, a Reset that leaves the search text alone, a Done that dismisses.
+private struct MemberFilterSheet: View {
+    @Binding var filter: MemberFilter
+    var availableParties: [Party] = []
+    var availableChambers: [Chamber] = []
+    var availableStates: [String] = []
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if availableChambers.count > 1 {
+                    Section("Chamber") {
+                        ForEach(availableChambers) { chamber in
+                            toggleRow(chamber.label, isOn: filter.chambers.contains(chamber)) {
+                                toggle(chamber, in: &filter.chambers)
+                            }
+                        }
+                    }
+                }
+
+                if !availableParties.isEmpty {
+                    Section("Party") {
+                        ForEach(availableParties) { party in
+                            toggleRow(party.label, isOn: filter.parties.contains(party)) {
+                                toggle(party, in: &filter.parties)
+                            }
+                        }
+                    }
+                }
+
+                if !availableStates.isEmpty {
+                    Section("State") {
+                        ForEach(availableStates, id: \.self) { state in
+                            toggleRow(state, isOn: filter.states.contains(state)) {
+                                toggle(state, in: &filter.states)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Filters")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Reset") { filter = MemberFilter() }
+                        .disabled(!filter.isActive)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }.bold()
+                }
+            }
+        }
+    }
+
+    private func toggleRow(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title).foregroundStyle(.primary)
+                Spacer()
+                if isOn {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Ink.accent)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private func toggle<T: Hashable>(_ value: T, in set: inout Set<T>) {
+        if set.contains(value) { set.remove(value) } else { set.insert(value) }
     }
 }
 
@@ -144,6 +309,14 @@ struct MemberDetailView: View {
                     ("Sold", "\(sells)"),
                 ])
                 .listRowBackground(Ink.card)
+            }
+
+            if MemberActivityStrip.isWorthShowing(trades) {
+                Section("Filing activity") {
+                    MemberActivityStrip(trades: trades)
+                        .padding(.vertical, 4)
+                        .listRowBackground(Ink.card)
+                }
             }
 
             if !topTickers.isEmpty {
@@ -212,6 +385,7 @@ struct MemberDetailView: View {
                             DisclosureRow(trade: trade, showsMember: false)
                         }
                         .disclosureRowChrome()
+                        .disclosureRowActions(for: trade, store: store, watchlist: watchlist)
                     }
                 }
             } header: {
@@ -222,6 +396,7 @@ struct MemberDetailView: View {
         }
         .listStyle(.insetGrouped)
         .gazetteChrome()
+        .sensoryFeedback(.selection, trigger: watchlist.isFollowing(member.id))
         .navigationTitle(member.name)
         .navigationBarTitleDisplayMode(.inline)
     }

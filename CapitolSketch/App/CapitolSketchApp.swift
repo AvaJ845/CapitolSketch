@@ -42,6 +42,7 @@ struct RootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var selection: Section = .feed
+    @State private var showingIntro = RootView.shouldShowIntro
     @State private var routedTrade: Trade?
     @State private var routedTicker: TickerRoute?
     /// Screenshot QA only (`-demo-member <bioguide>`): pushes a member's detail screen.
@@ -79,6 +80,17 @@ struct RootView: View {
 
     private var watchlistBadge: Int {
         watchlist.unseenMatches(in: store.trades).count
+    }
+
+    /// Show the one-time intro unless it has already been seen, or this is a screenshot /
+    /// QA launch (any of the `-tab-*` / `-demo-*` / `-route-*` / `-seed-*` / `-open-*` /
+    /// `-feed-*` / `-qa-*` / `-appearance-*` arguments the capture set uses), where a
+    /// modal sheet would sit on top of every frame.
+    static var shouldShowIntro: Bool {
+        if SharedContainer.defaults.bool(forKey: SharedContainer.Key.hasSeenIntro) { return false }
+        let qaPrefixes = ["-tab", "-demo", "-route", "-seed", "-open", "-feed", "-qa", "-appearance"]
+        let args = ProcessInfo.processInfo.arguments.dropFirst()
+        return !args.contains { arg in qaPrefixes.contains { arg.hasPrefix($0) } }
     }
 
     var body: some View {
@@ -128,14 +140,18 @@ struct RootView: View {
                 .environment(watchlist)
                 .tint(Ink.accent)
             }
+            .sheet(isPresented: $showingIntro) {
+                IntroView {
+                    SharedContainer.defaults.set(true, forKey: SharedContainer.Key.hasSeenIntro)
+                    showingIntro = false
+                }
+                .tint(Ink.accent)
+            }
             .task {
                 applyLaunchArguments()
                 applyPendingIntentRoute()
             }
             .onOpenURL { handle(url: $0) }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active { applyPendingIntentRoute() }
-            }
             .onChange(of: notifications.pendingRowID) { _, id in routeToFiling(id) }
             .onChange(of: notifications.pendingDigest) { _, digest in
                 if digest {
@@ -158,6 +174,8 @@ struct RootView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
+                // An App Shortcut may have left a one-shot route for us to act on.
+                applyPendingIntentRoute()
                 // A headless App Shortcut may have edited the watch/follow lists in the
                 // App Group while we were backgrounded — fold those in. Device-local only.
                 watchlist.reloadFromDefaults()
@@ -211,7 +229,7 @@ struct RootView: View {
                 NavigationLink {
                     StandoutsView()
                 } label: {
-                    Label("Standouts", systemImage: "rectangle.stack")
+                    Label("What stands out", systemImage: "rectangle.stack")
                 }
             }
             .navigationTitle("CapitolSketch")
