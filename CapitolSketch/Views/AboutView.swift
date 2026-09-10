@@ -32,12 +32,11 @@ struct AboutView: View {
                 }
 
                 Section("Appearance") {
-                    Picker("Appearance", selection: $appearance.preference) {
-                        ForEach(AppearanceStore.Preference.allCases) { pref in
-                            Text(pref.label).tag(pref)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    AdaptiveSegmentedPicker(
+                        title: "Appearance",
+                        selection: $appearance.preference,
+                        options: AppearanceStore.Preference.allCases.map { ($0, $0.label) }
+                    )
                     .accessibilityLabel("Appearance")
                     .listRowBackground(Ink.card)
                 }

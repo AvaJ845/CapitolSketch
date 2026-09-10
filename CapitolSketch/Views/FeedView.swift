@@ -307,12 +307,11 @@ struct FeedView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
 
-            Picker("Order", selection: $sort) {
-                ForEach(FeedSort.allCases) { order in
-                    Text(order.label).tag(order)
-                }
-            }
-            .pickerStyle(.segmented)
+            AdaptiveSegmentedPicker(
+                title: "Order",
+                selection: $sort,
+                options: FeedSort.allCases.map { ($0, $0.label) }
+            )
             .accessibilityLabel("Feed order")
 
             NavigationLink(value: StandoutsRoute()) {

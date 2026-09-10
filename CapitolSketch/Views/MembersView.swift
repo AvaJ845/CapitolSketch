@@ -77,12 +77,11 @@ struct MembersView: View {
         NavigationStack {
             List {
                 Section {
-                    Picker("Order", selection: $sort) {
-                        ForEach(MemberSort.allCases) { order in
-                            Text(order.label).tag(order)
-                        }
-                    }
-                    .pickerStyle(.segmented)
+                    AdaptiveSegmentedPicker(
+                        title: "Order",
+                        selection: $sort,
+                        options: MemberSort.allCases.map { ($0, $0.label) }
+                    )
                     .accessibilityLabel("Member order")
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
