@@ -1,6 +1,25 @@
 import SwiftUI
 import DisclosureKit
 
+/// The toolbar button that opens a filter sheet: an outline funnel, or a filled funnel
+/// with a count once any facet is active. Shared by the Feed and Members screens so both
+/// filters look and behave the same.
+struct FilterToolbarLabel: View {
+    let activeCount: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: activeCount > 0
+                  ? "line.3.horizontal.decrease.circle.fill"
+                  : "line.3.horizontal.decrease.circle")
+            if activeCount > 0 {
+                Text("\(activeCount)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
+            }
+        }
+    }
+}
+
 /// Small tag used for data-quality flags and secondary facts.
 ///
 /// Orange is reserved for "something about this filing's own dates is off". No colour in
@@ -253,6 +272,98 @@ struct MemberChip: View {
                 "\(name), \($0) disclosed transaction\($0 == 1 ? "" : "s"). Followed."
             } ?? "\(name). Followed."
         )
+    }
+}
+
+/// A month-by-month count of a member's disclosed transactions, drawn as plain bars.
+///
+/// This is a count of filings, never a sum of dollars — the form states no dollar figure,
+/// so none is charted. Each bar is one month; height is that month's transaction count
+/// against the busiest month in the window. Neutral ink, no colour meaning, and the
+/// caption says outright what is being counted. Shown only when there is enough history
+/// for the shape to mean anything.
+struct MemberActivityStrip: View {
+    /// The member's trades (any order).
+    let trades: [Trade]
+
+    /// At most this many trailing months, so a long career does not shrink every bar to a
+    /// hairline.
+    private static let maxMonths = 18
+
+    private struct MonthBar: Identifiable {
+        let id: Int
+        let label: String
+        let count: Int
+    }
+
+    private var bars: [MonthBar] {
+        let byMonth = Dictionary(grouping: trades, by: { $0.sortDate.monthOrdinal })
+            .mapValues(\.count)
+        guard let last = byMonth.keys.max() else { return [] }
+        let earliest = byMonth.keys.min() ?? last
+        let first = max(earliest, last - (Self.maxMonths - 1))
+        return (first...last).map { ordinal in
+            let date = CalendarDate(year: ordinal / 12, month: ordinal % 12 + 1, day: 1)
+            return MonthBar(id: ordinal, label: date.monthLabel, count: byMonth[ordinal] ?? 0)
+        }
+    }
+
+    private var maxCount: Int { max(bars.map(\.count).max() ?? 1, 1) }
+
+    /// Worth drawing only with at least three months of window and more than one active.
+    static func isWorthShowing(_ trades: [Trade]) -> Bool {
+        let months = Set(trades.map { $0.sortDate.monthOrdinal })
+        guard let lo = months.min(), let hi = months.max() else { return false }
+        return (hi - lo) >= 2 && months.count >= 2 && trades.count >= 5
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                let gap: CGFloat = 3
+                let count = max(bars.count, 1)
+                let width = max((geo.size.width - gap * CGFloat(count - 1)) / CGFloat(count), 2)
+                HStack(alignment: .bottom, spacing: gap) {
+                    ForEach(bars) { bar in
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .fill(bar.count == 0 ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.secondary))
+                            .frame(
+                                width: width,
+                                height: bar.count == 0
+                                    ? 2
+                                    : max(4, geo.size.height * CGFloat(bar.count) / CGFloat(maxCount))
+                            )
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            }
+            .frame(height: 40)
+
+            HStack {
+                Text(bars.first?.label ?? "")
+                Spacer()
+                Text(bars.last?.label ?? "")
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+
+            Text("Disclosed transactions per month — a count of filings, not amounts.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11yLabel)
+    }
+
+    private var a11yLabel: String {
+        guard let busiest = bars.max(by: { $0.count < $1.count }), busiest.count > 0 else {
+            return "Monthly disclosed-transaction counts. No activity in the window shown."
+        }
+        return "Disclosed transactions per month, \(bars.count) months from "
+            + "\(bars.first?.label ?? "") to \(bars.last?.label ?? ""). "
+            + "Busiest month \(busiest.label), \(busiest.count) transaction\(busiest.count == 1 ? "" : "s"). "
+            + "A count of filings, not amounts."
     }
 }
 

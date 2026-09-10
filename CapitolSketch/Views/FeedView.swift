@@ -114,6 +114,7 @@ enum FeedSort: String, CaseIterable, Identifiable {
 /// selected, ranked or reworded according to what the reader holds.
 struct FeedView: View {
     @Environment(TradeStore.self) private var store
+    @Environment(WatchlistStore.self) private var watchlist
 
     @State private var filter = TradeFilter()
     @State private var sort = FeedSort.stored
@@ -139,6 +140,11 @@ struct FeedView: View {
         case .recent: return filtered
         case .justDisclosed: return FeedBuilder.byDisclosureDate(filtered)
         }
+    }
+
+    /// The shown slice (capped at 400), split into month buckets for section headers.
+    private var groups: [FeedGrouping.Group] {
+        FeedGrouping.groups(for: Array(results.prefix(400)), sort: sort)
     }
 
     /// Distinct member states present in the feed, for the filter sheet.
@@ -180,26 +186,39 @@ struct FeedView: View {
                                 .listRowSeparator(.hidden)
                         }
 
-                        Section {
-                            ForEach(results.prefix(400)) { trade in
-                                NavigationLink(value: trade) {
-                                    DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
+                        ForEach(groups) { group in
+                            Section {
+                                ForEach(group.trades) { trade in
+                                    NavigationLink(value: trade) {
+                                        DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
+                                    }
+                                    .disclosureRowChrome()
+                                    .disclosureRowActions(for: trade, store: store, watchlist: watchlist)
                                 }
-                                .disclosureRowChrome()
+                            } header: {
+                                Text(group.title)
                             }
-                        } footer: {
+                        }
+
+                        Section {
                             VStack(alignment: .leading, spacing: 8) {
                                 if results.count > 400 {
-                                    Text("Search to narrow it down.")
+                                    Text("Showing the first 400. Search or filter to narrow it down.")
                                 }
                                 Text(Copy.historyNotHeadlines)
                                 Text(Copy.rangesOnly)
                             }
-                            .padding(.top, 4)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                         }
                     }
                     .listStyle(.insetGrouped)
                     .gazetteChrome()
+                    .sensoryFeedback(.selection, trigger: watchlist.tickers)
+                    .sensoryFeedback(.selection, trigger: watchlist.followedMemberIDs)
                 }
             }
             .navigationTitle("Disclosures")
@@ -337,22 +356,6 @@ struct FeedView: View {
             .accessibilityHint("Opens what stands out in this snapshot")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct FilterToolbarLabel: View {
-    let activeCount: Int
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: activeCount > 0
-                  ? "line.3.horizontal.decrease.circle.fill"
-                  : "line.3.horizontal.decrease.circle")
-            if activeCount > 0 {
-                Text("\(activeCount)")
-                    .font(.caption2.weight(.bold).monospacedDigit())
-            }
-        }
     }
 }
 

@@ -163,35 +163,6 @@ struct DisclosureDetailView: View {
                 }
             }
 
-            if !trade.warnings.isEmpty {
-                Section {
-                    ForEach(trade.warnings, id: \.self) { warning in
-                        Label(warning, systemImage: "info.circle")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("What the parser was unsure about")
-                } footer: {
-                    Text("Carried through from parsing rather than discarded, so you can "
-                         + "check it against the original.")
-                }
-            }
-
-            if filingRowCount > 1 {
-                Section {
-                    NavigationLink(value: FilingRoute(id: trade.filingID)) {
-                        Label(
-                            "See the full filing — \(filingRowCount) transactions",
-                            systemImage: "doc.on.doc"
-                        )
-                    }
-                    .listRowBackground(Ink.card)
-                } footer: {
-                    Text("This member disclosed several transactions in one filing.")
-                }
-            }
-
             if trade.ticker != nil || store.member(id: trade.memberID) != nil {
                 Section {
                     if let ticker = trade.ticker {
@@ -236,11 +207,42 @@ struct DisclosureDetailView: View {
                 }
             }
 
+            if filingRowCount > 1 {
+                Section {
+                    NavigationLink(value: FilingRoute(id: trade.filingID)) {
+                        Label(
+                            "See the full filing — \(filingRowCount) transactions",
+                            systemImage: "doc.on.doc"
+                        )
+                    }
+                    .listRowBackground(Ink.card)
+                } footer: {
+                    Text("This member disclosed several transactions in one filing.")
+                }
+            }
+
+            if !trade.warnings.isEmpty {
+                Section {
+                    ForEach(trade.warnings, id: \.self) { warning in
+                        Label(warning, systemImage: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("What the parser was unsure about")
+                } footer: {
+                    Text("Carried through from parsing rather than discarded, so you can "
+                         + "check it against the original.")
+                }
+            }
+
         }
         .listStyle(.insetGrouped)
         .gazetteChrome()
         .navigationTitle("Disclosure")
         .navigationBarTitleDisplayMode(.inline)
+        .sensoryFeedback(.selection, trigger: trade.ticker.map { watchlist.contains($0) } ?? false)
+        .sensoryFeedback(.selection, trigger: watchlist.isFollowing(trade.memberID))
     }
 
     private func row(_ label: String, _ value: String) -> some View {
@@ -303,6 +305,7 @@ struct TickerDetailView: View {
                             DisclosureRow(trade: trade, chamber: store.chamberTag(for: trade), party: store.partyTag(for: trade))
                         }
                             .disclosureRowChrome()
+                            .disclosureRowActions(for: trade, store: store, watchlist: watchlist)
                     }
                 }
             } header: {
@@ -313,6 +316,7 @@ struct TickerDetailView: View {
         }
         .listStyle(.insetGrouped)
         .gazetteChrome()
+        .sensoryFeedback(.selection, trigger: watchlist.contains(ticker))
         .navigationTitle(ticker)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }

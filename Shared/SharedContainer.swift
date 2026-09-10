@@ -44,6 +44,9 @@ enum SharedContainer {
         /// or "just disclosed" (newest filing date first). A view preference, not data:
         /// it only reorders rows the reader already holds. Device-local, never sent.
         static let feedSort = "feedSortOrder"
+        /// Whether the reader has been shown the one-time intro (the 45-day lag and what
+        /// the watchlist is for). A view flag, not data. Device-local, never sent.
+        static let hasSeenIntro = "hasSeenIntro"
     }
 
     // MARK: - Watchlist writes shared with a not-running app and the widget

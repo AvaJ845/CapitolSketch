@@ -103,5 +103,15 @@ extension CalendarDate {
         return "\(name) \(day), \(year)"
     }
 
+    /// `July 2026`, from the calendar fields. Used to group a long list by month.
+    var monthLabel: String {
+        let months = ["January", "February", "March", "April", "May", "June", "July",
+                      "August", "September", "October", "November", "December"]
+        let name = (1...12).contains(month) ? months[month - 1] : "Month \(month)"
+        return "\(name) \(year)"
+    }
+
+    /// A sortable `year * 12 + month` key, so month groups order without parsing a label.
+    var monthOrdinal: Int { year * 12 + (month - 1) }
 }
 

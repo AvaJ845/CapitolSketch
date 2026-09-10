@@ -9,6 +9,7 @@ struct AboutView: View {
     @Environment(AppIconStore.self) private var appIcon
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var showingIntro = false
     /// Screenshot QA only (`-route-dataquality`): push "About this data" on launch. A
     /// launch argument like `-demo-filing`, so the App Store screenshot set can be shot
     /// from the same Release build (see AppStore/METADATA.md §6).
@@ -58,11 +59,25 @@ struct AboutView: View {
                     }
                 }
 
-                Section("What this app is") {
+                Section {
                     ForEach(Copy.principles) { item in
                         principle(item)
                             .listRowBackground(Ink.card)
                     }
+
+                    Link(destination: URL(string: "https://avaj845.github.io/CapitolSketch/privacy.html")!) {
+                        Label("Privacy policy", systemImage: "hand.raised")
+                    }
+                    .listRowBackground(Ink.card)
+
+                    Button {
+                        showingIntro = true
+                    } label: {
+                        Label("Show the intro again", systemImage: "sparkles")
+                    }
+                    .listRowBackground(Ink.card)
+                } header: {
+                    Text("What this app is")
                 }
 
                 Section("Alerts") {
@@ -189,6 +204,10 @@ struct AboutView: View {
             .listStyle(.insetGrouped)
             .gazetteChrome()
             .navigationTitle("Settings")
+            .sheet(isPresented: $showingIntro) {
+                IntroView { showingIntro = false }
+                    .tint(Ink.accent)
+            }
             .task { notificationStatus = await AlertService.authorizationStatus() }
             .navigationDestination(isPresented: $routeToDataQuality) { DataQualityView() }
             .task {
