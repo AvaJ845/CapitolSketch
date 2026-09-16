@@ -194,15 +194,22 @@ public enum OGE278TParser {
 
             let (number, description) = splitLeadingNumber(head)
             let (amount, pending) = PTRParser.parseAmount(normalizeAmountText(tail))
+
+            // Carried on the trade itself, not just this function's aggregate `warnings`
+            // — a per-filing log a reader never sees is not the same as the "what the
+            // parser was unsure about" section every filing screen already shows for
+            // House and Senate rows. An OGE 278-T row deserves the same honesty.
+            var rowWarnings: [String] = []
             if pending != .nothing {
-                warnings.append("row \(number ?? "?"): amount continued past its own line — recorded as unknown")
+                rowWarnings.append("amount continued past its own line — recorded as unknown")
             }
             if amount.kind == .unknown {
-                warnings.append("row \(number ?? "?"): amount unreadable: \"\(tail)\"")
+                rowWarnings.append("amount unreadable: \"\(tail)\"")
             }
             if description.isEmpty {
-                warnings.append("row \(number ?? "?"): description was empty — kept anyway")
+                rowWarnings.append("description was empty — kept anyway")
             }
+            for w in rowWarnings { warnings.append("row \(number ?? "?"): \(w)") }
 
             trades.append(Trade(
                 id: "\(filing.filingID)-\(number ?? String(rowCount))",
@@ -220,7 +227,8 @@ public enum OGE278TParser {
                 amount: amount,
                 filingDescription: filing.position,
                 filingID: filing.filingID,
-                documentURL: filing.documentURL
+                documentURL: filing.documentURL,
+                warnings: rowWarnings
             ))
         }
 

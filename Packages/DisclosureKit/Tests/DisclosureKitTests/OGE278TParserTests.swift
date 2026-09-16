@@ -153,6 +153,25 @@ struct OGE278TParserTests {
         #expect(result.warnings.contains { $0.contains("amount unreadable") })
     }
 
+    @Test("A row's own uncertainty is carried on the trade itself, not just this call's aggregate warnings")
+    func rowWarningsRideAlongOnTheTrade() {
+        // A filing screen reads `Trade.warnings` (see `FilingView.filingWarnings`) to show
+        // "what the parser was unsure about" — the same treatment House and Senate rows
+        // already get via `PTRParser.appendWarning`. An OGE 278-T row with an unreadable
+        // amount needs the same, not just a line in this function's own return value that
+        // nothing downstream of `seedgen` ever reads again.
+        let lines = ["1  ARLINGTON TEX INDPT 5% DUE 02/15/31  sale  3/6/2026  Yes  garbled text here"]
+        let result = OGE278TParser.parse(lines: lines, filing: Self.filing())
+        #expect(result.trades[0].warnings.contains { $0.contains("amount unreadable") })
+    }
+
+    @Test("A cleanly parsed row carries no warnings on the trade")
+    func cleanRowHasNoTradeWarnings() {
+        let lines = ["1  ARLINGTON TEX INDPT 5% DUE 02/15/31  sale  3/6/2026  Yes  $500,001 - $1,000,000"]
+        let result = OGE278TParser.parse(lines: lines, filing: Self.filing())
+        #expect(result.trades[0].warnings.isEmpty)
+    }
+
     @Test("Every trade's id is unique per row number within a filing")
     func idsAreUniquePerRow() {
         let lines = [
