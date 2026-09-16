@@ -42,6 +42,23 @@ enum WhiteHouseFixture: String {
     /// Trimmed to page 1 (cover) + page 8 (the ISHARES/JOHNSON rows).
     case dateSlashMerge = "trump-date-slash-merge.2026-06-25"
 
+    /// Not a Periodic Transaction Report at all: a real amendment
+    /// (`President-Donald-J.-Trump-Periodic-Transaction-Report-Amendment-1.14.26`,
+    /// 10 pages) — a cover letter certifying a correction, plus an "Exhibit A" written as
+    /// "In place of line item #52, substitute the following: …", not the standard #/
+    /// Description/Type/Date/Notification/Amount table. `OGE278TParser`'s row anchor
+    /// doesn't fail cleanly against this shape — it partially matches, stitching the
+    /// instructional prose and the replacement row into one fabricated-looking
+    /// transaction (`OGE278TParserTests`/`WhiteHouseFetcherTests` pin the actual fix:
+    /// `WhiteHouseFetcher` now skips any filing `WhiteHouseFilingIndex` flagged
+    /// `isAmendment` before ever fetching it, so this parse path is never reached in
+    /// production). Kept here as the documented reason why, confirmed against a real
+    /// filing rather than assumed — this fixture is deliberately *not* wired into
+    /// `WhiteHouseFetcher`'s discovery in any test; it exists only to pin what
+    /// `OGE278TParser` does if an amendment is ever handed to it directly.
+    /// Trimmed to page 1 (cover letter) + page 3 (the first Exhibit A page).
+    case amendmentIsNotAPTR = "trump-amendment-not-a-ptr.2026-01-14"
+
     var document: PDFDocument {
         guard let url = Bundle.module.url(
             forResource: rawValue, withExtension: "pdf", subdirectory: "Fixtures/whitehouse"
@@ -121,5 +138,18 @@ struct WhiteHouseFixtureTests {
         #expect(cleanRow?.txDate == CalendarDate(iso: "2026-05-11"))
         #expect(cleanRow?.amount.label == "$15,001 – $50,000")
         #expect(cleanRow?.hasImpossibleDate == false)
+    }
+
+    @Test("DOCUMENTED, NOT FIXED HERE — an amendment fed to the parser directly still produces fabricated-looking rows")
+    func amendmentConfusesTheParserIfEverReached() {
+        // This is why `WhiteHouseFetcher` skips `isAmendment` filings before fetching —
+        // see `WhiteHouseFetcherTests.amendmentNeverFetched`. This test pins the parser's
+        // own behavior in isolation: an amendment's "In place of line item #N, substitute
+        // the following:" prose is not the standard table, and the row anchor doesn't
+        // fail cleanly against it — it stitches unrelated fragments into rows that look
+        // like real transactions but aren't.
+        let result = WhiteHouseFixture.amendmentIsNotAPTR.parse(disclosedDate: CalendarDate(iso: "2026-01-14"))
+        #expect(result.trades.count == 3)
+        #expect(result.trades.allSatisfy { $0.asset.contains("substitute the following") })
     }
 }

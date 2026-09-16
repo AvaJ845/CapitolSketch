@@ -46,6 +46,23 @@ public struct WhiteHouseFetcher: Sendable {
             stats.filingsProcessed += 1
             let filingID = "wh-\(row.documentURL.deletingPathExtension().lastPathComponent)"
 
+            // An amendment is not a restated PTR — it is a cover letter plus an "Exhibit
+            // A" in "In place of line item #N, substitute the following:" prose, a
+            // structurally different document `OGE278TParser`'s row anchor was never
+            // built to read. Confirmed against a real one while hardening this pipeline:
+            // it doesn't fail cleanly, it partially matches and stitches two unrelated
+            // sentence fragments into one fabricated-looking transaction. Skipped here,
+            // before any network fetch, the same treatment an unreadable paper filing
+            // gets — reported, never guessed at.
+            guard !row.isAmendment else {
+                stats.filingsWithoutText.append(filingID)
+                warnings[filingID] = [
+                    "amendment — a corrections letter, not the standard form; not machine-readable, same treatment as unreadable paper"
+                ]
+                onProgress?(offset + 1, rows.count, trades.count)
+                continue
+            }
+
             do {
                 let (data, response) = try await session.data(from: row.documentURL)
                 guard (response as? HTTPURLResponse)?.statusCode == 200 else {
