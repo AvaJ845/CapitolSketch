@@ -209,31 +209,62 @@ struct AboutView: View {
         return build == short ? short : "\(short) (\(build))"
     }
 
-    /// The "Known gaps" copy adapts to what the snapshot covers. A House-only build reads
-    /// exactly as before; a Senate-inclusive one drops the "House only" line and names the
-    /// Senate paper-filing gap, which is the same class as an unreadable House scan.
+    private var coversSenate: Bool { store.feed.chambersCovered.contains(.senate) }
+    private var coversExecutive: Bool { store.feed.chambersCovered.contains(.executive) }
+
+    /// The "Known gaps" copy adapts to what the snapshot covers — House alone, House and
+    /// Senate, or either of those plus the President — naming each source that is
+    /// actually present rather than assuming the only possible addition to House is
+    /// Senate.
     private var knownGapsCopy: String {
-        let scope = store.isMultiChamber
-            ? """
+        let scope: String
+        switch (coversSenate, coversExecutive) {
+        case (false, false):
+            scope = """
+            **House only in this version.** Senate disclosures live on a separate portal \
+            that requires a session cookie, so they are not covered yet.
+            """
+        case (true, false):
+            scope = """
             **The full Congress, with a lag.** House trades come from the Clerk's bulk \
             index; Senate trades are pulled from the eFD portal when this snapshot is \
             built. Both are already weeks old — members have 45 days to disclose.
             """
-            : """
-            **House only in this version.** Senate disclosures live on a separate portal \
-            that requires a session cookie, so they are not covered yet.
+        case (false, true):
+            scope = """
+            **House, plus the President.** House trades come from the Clerk's bulk \
+            index; the President's trades come from the White House's own public \
+            disclosures page. Both are already weeks old — the same 45-day disclosure \
+            window applies to the executive branch too.
             """
-        let paper = store.isMultiChamber
+        case (true, true):
+            scope = """
+            **The full Congress, plus the President.** House trades come from the \
+            Clerk's bulk index, Senate trades from the eFD portal, and the President's \
+            trades from the White House's own public disclosures page. All of it is \
+            already weeks old — the same 45-day disclosure window applies across the \
+            board.
+            """
+        }
+
+        var paperNotes: [String] = []
+        if coversSenate {
+            paperNotes.append("Senate paper filings, whose amounts are hand-marked and cannot be read reliably")
+        }
+        if coversExecutive {
+            paperNotes.append("the President's filings, which are scanned and recovered by on-device text recognition, flagged lower-confidence")
+        }
+        let paper = paperNotes.isEmpty
             ? """
-            **Some filings are scanned paper.** \(store.stats.coverageNote) This includes \
-            Senate paper filings, whose amounts are hand-marked and cannot be read \
-            reliably — they are counted here and shown as missing, the same as an \
-            unreadable House scan. Open the source filing for those.
-            """
-            : """
             **Some filings are scanned paper.** \(store.stats.coverageNote) Scans are run \
             through OCR; whatever it recovers is shown but flagged lower-confidence, and \
             the rest are still missing here — open the source PDF.
+            """
+            : """
+            **Some filings are scanned paper.** \(store.stats.coverageNote) This includes \
+            \(paperNotes.joined(separator: " and ")) — counted here and shown as missing \
+            or flagged, the same treatment an unreadable House scan gets. Open the source \
+            filing for those.
             """
         return """
         \(scope)
@@ -245,6 +276,17 @@ struct AboutView: View {
         """
     }
 
+    /// "House" / "House & Senate" / "House & Executive" / "House, Senate & Executive" —
+    /// whichever sources are actually in the loaded snapshot.
+    private var chamberSummaryLabel: String {
+        switch (coversSenate, coversExecutive) {
+        case (false, false): return "House"
+        case (true, false): return "House & Senate"
+        case (false, true): return "House & Executive"
+        case (true, true): return "House, Senate & Executive"
+        }
+    }
+
     private var brandHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("CapitolSketch")
@@ -252,7 +294,7 @@ struct AboutView: View {
             Text("Congress trade disclosures")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("\(store.isMultiChamber ? "House & Senate" : "House") · public record")
+            Text("\(chamberSummaryLabel) · public record")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

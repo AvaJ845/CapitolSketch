@@ -13,6 +13,23 @@ struct DataQualityView: View {
     private var trades: [Trade] { store.trades }
     private var stats: ParseStats { store.stats }
     private var lag: DisclosureLagStats { trades.disclosureLagStats }
+    private var coversExecutive: Bool { store.feed.chambersCovered.contains(.executive) }
+
+    /// The President is not a "member of Congress" — this snapshot's noun for its people
+    /// has to stay accurate once an executive-branch filer is in the mix.
+    private var membersDescription: String {
+        if coversExecutive {
+            return "People with at least one disclosed transaction here."
+        }
+        return store.isMultiChamber
+            ? "Members of Congress with at least one disclosed transaction here."
+            : "House members with at least one disclosed transaction here."
+    }
+
+    private var sinceLeftPhrase: String {
+        if coversExecutive { return "left office" }
+        return store.isMultiChamber ? "left Congress" : "left the House"
+    }
 
     /// Transaction counts by calendar year of the transaction, oldest first. Only shown
     /// when the snapshot spans more than one filing year.
@@ -55,10 +72,7 @@ struct DataQualityView: View {
             Section {
                 statRow(trades.count.formatted(),
                         "Disclosed transactions in the loaded filings.")
-                statRow(store.members.count.formatted(),
-                        store.isMultiChamber
-                            ? "Members of Congress with at least one disclosed transaction here."
-                            : "House members with at least one disclosed transaction here.")
+                statRow(store.members.count.formatted(), membersDescription)
                 statRow(filingYears, "Filing years covered by this snapshot.")
                 if let generatedAt = store.generatedAt {
                     statRow(generatedAt.formatted(date: .abbreviated, time: .shortened),
@@ -78,7 +92,7 @@ struct DataQualityView: View {
                      + "project, compiled into this snapshot when it was built. It reflects "
                      + "current full-committee membership only. It is missing where a "
                      + "member could not be matched to that roster, for members who have "
-                     + "since left \(store.isMultiChamber ? "Congress" : "the House"), and "
+                     + "since \(sinceLeftPhrase), and "
                      + "for party leaders, who often hold no committee seat. Committee "
                      + "membership is never compared with any trade.")
             }

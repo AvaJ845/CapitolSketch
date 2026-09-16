@@ -50,9 +50,15 @@ struct DisclosureEntry: TimelineEntry {
 
     var isMultiChamber: Bool { chambersCovered.count > 1 }
 
-    /// The noun for the snapshot's filings: "House" while the feed is House-only,
-    /// "Congress" once it also carries the Senate.
-    var chamberNoun: String { isMultiChamber ? "Congress" : "House" }
+    /// The adjective every call site pairs with the literal word "filings" ("No
+    /// \(chamberNoun) filings yet"): "House" while the feed is House-only, "Congress"
+    /// once it also carries the Senate, "government" once an executive-branch filer is
+    /// present — the President is not a member of Congress, so "Congress filings" would
+    /// misdescribe a House-and-executive (or all-three) snapshot.
+    var chamberNoun: String {
+        if chambersCovered.contains(.executive) { return "government" }
+        return isMultiChamber ? "Congress" : "House"
+    }
 
     /// The plain "House" / "Senate" tag for a row, or `nil` when the snapshot is
     /// single-chamber (nothing to disambiguate) or the filer is not in the feed.

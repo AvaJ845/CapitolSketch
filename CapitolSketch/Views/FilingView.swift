@@ -20,6 +20,39 @@ struct FilingView: View {
     private var rows: [Trade] { store.trades(inFiling: filingID) }
     private var lead: Trade? { rows.first }
     private var member: Member? { lead.flatMap { store.member(id: $0.memberID) } }
+    private var chamber: Chamber? { member?.chamber }
+
+    /// "US House Clerk" / "US Senate eFD" / "White House Public Disclosures" — the body
+    /// that publishes this filing.
+    private var sourceName: String {
+        switch chamber {
+        case .senate: return "US Senate eFD"
+        case .executive: return "White House Public Disclosures"
+        case .house, nil: return "US House Clerk"
+        }
+    }
+
+    /// The Senate publishes the electronic report as a web page; the House and the
+    /// executive branch both as a PDF.
+    private var sourceMedium: String { chamber == .senate ? "source page" : "source PDF" }
+
+    /// "House" / "Senate" / "Executive Branch" — the share-sheet subject line.
+    private var shareSubjectNoun: String {
+        switch chamber {
+        case .senate: return "Senate"
+        case .executive: return "Executive Branch"
+        case .house, nil: return "House"
+        }
+    }
+
+    /// "US House" / "US Senate" / "White House" — the share-sheet message line.
+    private var shareChamberLabel: String {
+        switch chamber {
+        case .senate: return "US Senate"
+        case .executive: return "White House"
+        case .house, nil: return "US House"
+        }
+    }
 
     /// Distinct parser caveats across every row in the filing, plus a note when any row
     /// carries an impossible date — so the whole-filing view is as honest as the per-row
@@ -79,8 +112,8 @@ struct FilingView: View {
 
                         ShareLink(
                             item: url,
-                            subject: Text("\(lead.memberName) — House disclosure"),
-                            message: Text("US House Periodic Transaction Report, filing \(filingID)")
+                            subject: Text("\(lead.memberName) — \(shareSubjectNoun) disclosure"),
+                            message: Text("\(shareChamberLabel) Periodic Transaction Report, filing \(filingID)")
                         ) {
                             HStack(spacing: 10) {
                                 Image(systemName: "square.and.arrow.up")
@@ -91,9 +124,9 @@ struct FilingView: View {
                         }
                         .listRowBackground(Ink.card)
                     } footer: {
-                        Text("Every field below is transcribed from the source PDF — US House "
-                             + "Clerk, filing \(filingID), public domain. Check anything that "
-                             + "matters against it.")
+                        Text("Every field below is transcribed from the \(sourceMedium) — "
+                             + "\(sourceName), filing \(filingID), public domain. Check anything "
+                             + "that matters against it.")
                     }
                 }
 

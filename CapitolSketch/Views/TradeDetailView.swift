@@ -20,14 +20,29 @@ struct DisclosureDetailView: View {
     /// wording (House Clerk PDF vs. Senate eFD page) and the "Chamber" row.
     private var chamber: Chamber? { store.chamberTag(for: trade) }
 
-    /// "US House Clerk" / "US Senate eFD" — the body that publishes this filing.
+    /// "US House Clerk" / "US Senate eFD" / "White House Public Disclosures" — the body
+    /// that publishes this filing.
     private var sourceName: String {
-        (store.chamber(of: trade) == .senate) ? "US Senate eFD" : "US House Clerk"
+        switch store.chamber(of: trade) {
+        case .senate: return "US Senate eFD"
+        case .executive: return "White House Public Disclosures"
+        case .house, nil: return "US House Clerk"
+        }
     }
 
-    /// The Senate publishes the electronic report as a web page, the House as a PDF.
+    /// The Senate publishes the electronic report as a web page; the House and the
+    /// executive branch both as a PDF.
     private var sourceMedium: String {
-        (store.chamber(of: trade) == .senate) ? "source page" : "source PDF"
+        store.chamber(of: trade) == .senate ? "source page" : "source PDF"
+    }
+
+    /// "US House" / "US Senate" / "White House" — the share-sheet subject line.
+    private var shareChamberLabel: String {
+        switch store.chamber(of: trade) {
+        case .senate: return "US Senate"
+        case .executive: return "White House"
+        case .house, nil: return "US House"
+        }
     }
 
     /// The ticker and the buy/sell badge. Side by side normally; stacked once Dynamic
@@ -91,7 +106,7 @@ struct DisclosureDetailView: View {
                     ShareLink(
                         item: url,
                         subject: Text("\(trade.memberName) — \(trade.displaySymbol) disclosure"),
-                        message: Text("\(store.chamber(of: trade) == .senate ? "US Senate" : "US House") "
+                        message: Text("\(shareChamberLabel) "
                                       + "Periodic Transaction Report, filing \(trade.filingID)")
                     ) {
                         HStack(spacing: 10) {
