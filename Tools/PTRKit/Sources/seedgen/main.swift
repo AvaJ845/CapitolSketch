@@ -25,6 +25,9 @@ struct Options {
     var force = false
     /// Also ingest Senate PTRs from efdsearch.senate.gov (build-time only; no cache).
     var senate = false
+    /// Also ingest the President's PTRs from whitehouse.gov/disclosures (build-time
+    /// only; no cache — same reasoning as Senate).
+    var executive = false
 }
 
 func parseArgs() -> Options {
@@ -40,6 +43,7 @@ func parseArgs() -> Options {
         case "--pretty": o.pretty = true
         case "--force": o.force = true
         case "--senate": o.senate = true
+        case "--executive": o.executive = true
         case "--help", "-h":
             print("""
             seedgen — parse Congressional Periodic Transaction Reports into a seed snapshot
@@ -50,6 +54,7 @@ func parseArgs() -> Options {
               --limit N           only the N most recent filings (for testing)
               --concurrency N     parallel PDF downloads (default 6)
               --senate            also ingest Senate PTRs from efdsearch.senate.gov
+              --executive         also ingest the President's PTRs from whitehouse.gov/disclosures
               --force             ignore every cache and refetch
               --pretty            pretty-print the JSON
             """)
@@ -153,20 +158,38 @@ if opts.senate {
     }
 }
 
-let combinedTrades = output.trades + (senateOutput?.trades ?? [])
+// 3c. The President's PTRs from whitehouse.gov/disclosures (build-time only). Same
+//     output shape as House and Senate; folded in before de-duplication.
+var whiteHouseOutput: PTRFetcher.Output?
+if opts.executive {
+    log("Executive: reading whitehouse.gov/disclosures for President PTRs…")
+    do {
+        whiteHouseOutput = try await WhiteHouseFetcher().run(limit: opts.limit) { done, total, rows in
+            if done % 10 == 0 || done == total { log("  Executive \(done)/\(total) filings — \(rows) rows") }
+        }
+        if let w = whiteHouseOutput {
+            log("Executive: \(w.trades.count) rows from \(w.members.count) filer(s) "
+                + "(\(w.stats.filingsFailedToFetch.count) filings failed to fetch or open)")
+        }
+    } catch {
+        log("Executive: FAILED — \(error.localizedDescription). Shipping without it.")
+    }
+}
+
+let combinedTrades = output.trades + (senateOutput?.trades ?? []) + (whiteHouseOutput?.trades ?? [])
 // Same de-dup + ordering the app's on-device merge runs, via the shared helper.
 let deduped = FeedBuilder.sorted(deduplicate(combinedTrades))
 log("de-duplicated \(combinedTrades.count) → \(deduped.count) rows")
 
 // 4. Report what did not work, loudly. These used to be counted as failures and dropped.
 var stats = output.stats
-if let s = senateOutput?.stats {
-    stats.filingsProcessed += s.filingsProcessed
-    stats.filingsWithoutText += s.filingsWithoutText
-    stats.filingsYieldingNoTrades += s.filingsYieldingNoTrades
-    stats.filingsFailedToFetch += s.filingsFailedToFetch
+for extra in [senateOutput?.stats, whiteHouseOutput?.stats].compactMap({ $0 }) {
+    stats.filingsProcessed += extra.filingsProcessed
+    stats.filingsWithoutText += extra.filingsWithoutText
+    stats.filingsYieldingNoTrades += extra.filingsYieldingNoTrades
+    stats.filingsFailedToFetch += extra.filingsFailedToFetch
 }
-var allMembers = output.members + (senateOutput?.members ?? [])
+var allMembers = output.members + (senateOutput?.members ?? []) + (whiteHouseOutput?.members ?? [])
 
 // Attach public committee assignments by Bioguide ID. A member the crosswalk did not
 // place keeps `[]` — same fallback as an unresolved Bioguide ID.
@@ -240,6 +263,10 @@ if senateOutput != nil {
     let senators = deduped.filter { t in allMembers.contains { $0.id == t.memberID && $0.chamber == .senate } }
     log("SENATE: \(senators.count) rows in the final feed after de-dup.")
 }
+if whiteHouseOutput != nil {
+    let executiveRows = deduped.filter { t in allMembers.contains { $0.id == t.memberID && $0.chamber == .executive } }
+    log("EXECUTIVE: \(executiveRows.count) rows in the final feed after de-dup.")
+}
 log("────────────────")
 log("")
 
@@ -249,13 +276,30 @@ log("")
 var nameToMemberID: [String: String] = [:]
 for m in allMembers { nameToMemberID[m.name] = m.id }
 
+var chambersCovered: [Chamber] = [.house]
+if senateOutput != nil { chambersCovered.append(.senate) }
+if whiteHouseOutput != nil { chambersCovered.append(.executive) }
+
+let source: String
+switch (senateOutput != nil, whiteHouseOutput != nil) {
+case (false, false): source = TradeFeed.houseClerkSource
+case (true, false): source = TradeFeed.bothChambersSource
+case (false, true):
+    source = "US House Clerk (disclosures-clerk.house.gov) and White House Public "
+        + "Disclosures (whitehouse.gov/disclosures) — Periodic Transaction Reports"
+case (true, true):
+    source = "US House Clerk (disclosures-clerk.house.gov), US Senate eFD "
+        + "(efdsearch.senate.gov), and White House Public Disclosures "
+        + "(whitehouse.gov/disclosures) — Periodic Transaction Reports"
+}
+
 let feed = FeedBuilder.make(
     trades: deduped,
     members: allMembers,
     stats: stats,
     indexYears: opts.years,
-    chambersCovered: senateOutput != nil ? [.house, .senate] : [.house],
-    source: senateOutput != nil ? TradeFeed.bothChambersSource : TradeFeed.houseClerkSource,
+    chambersCovered: chambersCovered,
+    source: source,
     nameToMemberID: nameToMemberID
 )
 

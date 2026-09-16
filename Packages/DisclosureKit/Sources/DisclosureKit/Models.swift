@@ -2,8 +2,17 @@ import Foundation
 
 public enum Chamber: String, Codable, Sendable, CaseIterable, Identifiable {
     case house, senate
+    /// The President — the one executive-branch filer covered so far. Named for the
+    /// branch, not the office, since a Vice President's filings would belong here too.
+    case executive
     public var id: String { rawValue }
-    public var label: String { self == .house ? "House" : "Senate" }
+    public var label: String {
+        switch self {
+        case .house: return "House"
+        case .senate: return "Senate"
+        case .executive: return "Executive Branch"
+        }
+    }
 }
 
 /// A member's party, from the `congress-legislators` crosswalk — a plain fact about the
