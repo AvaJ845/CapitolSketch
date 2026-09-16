@@ -66,10 +66,18 @@ struct MembersView: View {
     /// One member. Monogram, name and seat beside the trade count normally; at the
     /// accessibility text sizes the count drops below the name so the name keeps the
     /// full row width instead of being broken mid-word.
+    ///
+    /// The chamber now also gets its own small badge next to the name — the Fellows'
+    /// call on the People-screen roast: with three branches in one activity-sorted list,
+    /// a reader *browsing* rather than searching should be able to tell House, Senate,
+    /// and Executive Branch apart at a glance, not just by reading the caption line.
+    /// Kept text-only, no color, matching `DisclosureRow`'s own `tagPill` — this app
+    /// never uses color to encode a fact about who someone is (`Standouts.swift`'s own
+    /// rule for party: "never aggregated or coloured in the UI").
     @ViewBuilder
     private func memberRow(_ row: (member: Member, count: Int)) -> some View {
         let name = Text(row.member.name).font(.body.weight(.medium))
-        let seatText = [row.member.party.short, row.member.chamber.label, row.member.seat]
+        let seatText = [row.member.party.short, row.member.seat]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
         let seat = Text(seatText)
@@ -82,20 +90,37 @@ struct MembersView: View {
         HStack(spacing: 12) {
             MonogramView(name: row.member.name)
             if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     name
-                    seat
+                    chamberBadge(row.member.chamber)
+                    if !seatText.isEmpty { seat }
                     count
                 }
             } else {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     name
-                    seat
+                    HStack(spacing: 6) {
+                        chamberBadge(row.member.chamber)
+                        if !seatText.isEmpty { seat }
+                    }
                 }
                 Spacer(minLength: 8)
                 count
             }
         }
+    }
+
+    /// "House" / "Senate" / "Executive Branch" as its own small tag — same visual
+    /// treatment `DisclosureRow`'s party/chamber pills already use elsewhere in the app.
+    private func chamberBadge(_ chamber: Chamber) -> some View {
+        Text(chamber.label)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .foregroundStyle(.secondary)
+            .fixedSize()
+            .accessibilityHidden(true)
     }
 }
 
