@@ -55,10 +55,10 @@ struct WatchlistView: View {
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
                             } header: {
-                                Text("Members you follow")
+                                Text("People you follow")
                             } footer: {
                                 if missingFollowedCount > 0 {
-                                    Text("\(missingFollowedCount) followed member\(missingFollowedCount == 1 ? " has" : "s have") no filing in this snapshot.")
+                                    Text("\(missingFollowedCount) followed \(missingFollowedCount == 1 ? "person has" : "people have") no filing in this snapshot.")
                                 }
                             }
                         }

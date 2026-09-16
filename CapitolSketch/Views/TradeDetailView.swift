@@ -286,7 +286,7 @@ struct TickerDetailView: View {
                     ("Disclosures", "\(trades.count)"),
                     ("Bought", "\(trades.filter { $0.txType == .buy }.count)"),
                     ("Sold", "\(trades.filter { $0.txType != .buy }.count)"),
-                    ("Members", "\(Set(trades.map(\.memberID)).count)"),
+                    ("People", "\(Set(trades.map(\.memberID)).count)"),
                 ])
                 .listRowBackground(Ink.card)
             } footer: {

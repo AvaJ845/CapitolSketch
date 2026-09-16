@@ -62,7 +62,7 @@ struct RootView: View {
             switch self {
             case .feed: return "Trades"
             case .watchlist: return "Watchlist"
-            case .members: return "Members"
+            case .members: return "People"
             case .about: return "Settings"
             }
         }

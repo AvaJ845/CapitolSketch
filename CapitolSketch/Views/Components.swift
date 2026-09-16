@@ -214,7 +214,7 @@ struct TruncationNote: View {
     }
 }
 
-/// A followed member as a chip, for the Watchlist "Members you follow" strip. A person
+/// A followed member as a chip, for the Watchlist "People you follow" strip. A person
 /// glyph and the member's name in the regular text face — not the monospaced ticker
 /// face `TickerChip` uses — with an accessible label and room to truncate a long name.
 struct MemberChip: View {

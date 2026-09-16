@@ -93,7 +93,7 @@ struct AboutView: View {
 
                 Section("Data") {
                     labeled("Transactions", store.trades.count.formatted())
-                    labeled("Members", store.members.count.formatted())
+                    labeled("People", store.members.count.formatted())
                     labeled("Snapshot taken",
                             store.feed.generatedAt == .distantPast
                             ? "—"

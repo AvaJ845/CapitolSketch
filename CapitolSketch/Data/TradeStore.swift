@@ -321,7 +321,7 @@ final class TradeStore {
         }
     }
 
-    /// Members ordered by how much they have disclosed, for the Members tab.
+    /// Members ordered by how much they have disclosed, for the People tab.
     func membersByActivity() -> [(member: Member, count: Int)] {
         let counts = Dictionary(grouping: trades, by: \.memberID).mapValues(\.count)
         return members

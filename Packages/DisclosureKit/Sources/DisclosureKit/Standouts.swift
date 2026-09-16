@@ -14,7 +14,7 @@ public struct Standout: Identifiable, Sendable, Hashable {
 
     public enum Category: String, Sendable, CaseIterable {
         case topBracket, filedLate, newPosition, offPattern, rareTrader, memberLargest
-        case memberVolumeTrend, tickerCluster
+        case memberVolumeTrend, tickerCluster, crossBranchTicker
     }
 
     public let category: Category
@@ -155,6 +155,7 @@ public enum Standouts {
             (.memberLargest, memberLargest(in: feed)),
             (.memberVolumeTrend, memberVolumeTrend(in: feed)),
             (.tickerCluster, tickerCluster(in: feed)),
+            (.crossBranchTicker, crossBranchTicker(in: feed)),
         ]
         for (category, list) in lists where !list.isEmpty {
             out[category] = list
@@ -432,6 +433,70 @@ public enum Standouts {
                 ? "\(members) members disclosed \(ticker) trades the same day"
                 : "\(members) members disclosed \(ticker) trades within \(winner.span) days of each other"
             out.append(Standout(category: .tickerCluster, trade: anchor, reason: reason))
+        }
+        return out.sorted(by: recencyThenID)
+    }
+
+    // MARK: - Rule 10 · crossBranchTicker
+
+    /// The same fact `tickerCluster` already states — a count of filers and a window,
+    /// never a relationship — but scoped to a cluster that spans both Congress and the
+    /// executive branch, rather than staying inside Congress the way every plain
+    /// `tickerCluster` result already can (House and Senate together are not "cross
+    /// branch": both are Congress, and that overlap is already `tickerCluster`'s job).
+    /// This never says *why* — no committee, no department, no jurisdiction is
+    /// consulted, deliberately: matching a Cabinet secretary's department to a traded
+    /// company is a decision this codebase already made and rejected elsewhere
+    /// (`CommitteeRoster.swift`), and doing it implicitly here would be the same
+    /// editorial judgment wearing a new category.
+    static let crossBranchWindowDays = 7
+    static let crossBranchMinPeople = 2
+
+    public static func crossBranchTicker(in feed: TradeFeed) -> [Standout] {
+        let chamberByMember = Dictionary(uniqueKeysWithValues: feed.members.map { ($0.id, $0.chamber) })
+        guard chamberByMember.values.contains(.executive) else { return [] }
+
+        var byTicker: [String: [Trade]] = [:]
+        for t in feed.trades {
+            guard let raw = t.ticker, chamberByMember[t.memberID] != nil else { continue }
+            byTicker[raw.uppercased(), default: []].append(t)
+        }
+
+        var out: [Standout] = []
+        for (ticker, rows) in byTicker {
+            let latestPerMember = Dictionary(grouping: rows, by: \.memberID)
+                .compactMap { _, memberRows in memberRows.max(by: { $0.disclosedDate < $1.disclosedDate }) }
+                .sorted { $0.disclosedDate < $1.disclosedDate }
+            guard latestPerMember.count >= crossBranchMinPeople else { continue }
+
+            var left = 0
+            var best: (left: Int, right: Int, span: Int)?
+            for right in latestPerMember.indices {
+                while latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                        > crossBranchWindowDays {
+                    left += 1
+                }
+                let window = latestPerMember[left...right]
+                let chambers = window.compactMap { chamberByMember[$0.memberID] }
+                let hasCongress = chambers.contains { $0 == .house || $0 == .senate }
+                let hasExecutive = chambers.contains(.executive)
+                guard hasCongress, hasExecutive else { continue }
+
+                let count = window.count
+                let span = latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                let bestCount = best.map { $0.right - $0.left + 1 } ?? 0
+                if count > bestCount || (count == bestCount && span < best!.span) {
+                    best = (left, right, span)
+                }
+            }
+            guard let winner = best else { continue }
+
+            let people = winner.right - winner.left + 1
+            let anchor = latestPerMember[winner.right]
+            let reason = winner.span == 0
+                ? "\(people) people, spanning Congress and the executive branch, disclosed \(ticker) trades the same day"
+                : "\(people) people, spanning Congress and the executive branch, disclosed \(ticker) trades within \(winner.span) days of each other"
+            out.append(Standout(category: .crossBranchTicker, trade: anchor, reason: reason))
         }
         return out.sorted(by: recencyThenID)
     }

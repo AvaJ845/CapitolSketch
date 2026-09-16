@@ -31,6 +31,8 @@ struct DataQualityView: View {
         return store.isMultiChamber ? "left Congress" : "left the House"
     }
 
+    private var committeeCoverageNoun: String { coversExecutive ? "People" : "Members" }
+
     /// Transaction counts by calendar year of the transaction, oldest first. Only shown
     /// when the snapshot spans more than one filing year.
     private var countsByYear: [(year: Int, count: Int)] {
@@ -84,7 +86,7 @@ struct DataQualityView: View {
 
             Section {
                 statRow("\(membersWithCommittees) of \(store.members.count)",
-                        "Members here with their public committee assignments attached.")
+                        "\(committeeCoverageNoun) here with their public committee assignments attached.")
             } header: {
                 Text("Committee assignments")
             } footer: {

@@ -257,6 +257,68 @@ struct StandoutsTests {
         #expect(Standouts.tickerCluster(in: feed).map(\.trade.memberID) == ["m3"])
     }
 
+    // MARK: - Rule 10 · crossBranchTicker
+
+    /// A feed with an explicit member roster (chambers set deliberately), unlike
+    /// `makeFeed`, which always synthesizes `.house` members.
+    private func makeMixedFeed(_ trades: [Trade], chambers: [String: Chamber]) -> TradeFeed {
+        let members = chambers.map { id, chamber in
+            Member(id: id, bioguideID: id, name: id, state: chamber == .executive ? "" : "CA",
+                   district: chamber == .executive ? nil : "1", chamber: chamber)
+        }
+        return FeedBuilder.make(trades: trades, members: members, stats: ParseStats(), indexYears: [2026])
+    }
+
+    @Test("A senator and a Cabinet secretary in the same ticker within the window is a cross-branch standout")
+    func crossBranchTickerFires() {
+        let feed = makeMixedFeed([
+            mk("x-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("x-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-04"),
+        ], chambers: ["m1": .senate, "m2": .executive])
+        let rows = Standouts.crossBranchTicker(in: feed)
+        #expect(rows.count == 1)
+        #expect(rows.first?.reason == "2 people, spanning Congress and the executive branch, disclosed AAA trades within 3 days of each other")
+    }
+
+    @Test("House and Senate alone never produce a cross-branch standout — that overlap is tickerCluster's job")
+    func congressOnlyNeverCrossesBranches() {
+        let feed = makeMixedFeed([
+            mk("y-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("y-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-02"),
+            mk("y-m3", member: "m3", ticker: "AAA", disclosed: "2026-03-03"),
+        ], chambers: ["m1": .house, "m2": .senate, "m3": .house])
+        #expect(Standouts.crossBranchTicker(in: feed).isEmpty)
+        // The same feed is a completely ordinary tickerCluster result.
+        #expect(!Standouts.tickerCluster(in: feed).isEmpty)
+    }
+
+    @Test("Two executive-branch filers alone (no Congress) do not qualify either")
+    func executiveOnlyDoesNotQualify() {
+        let feed = makeMixedFeed([
+            mk("z-m1", member: "president", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("z-m2", member: "secretary", ticker: "AAA", disclosed: "2026-03-02"),
+        ], chambers: ["president": .executive, "secretary": .executive])
+        #expect(Standouts.crossBranchTicker(in: feed).isEmpty)
+    }
+
+    @Test("A feed with no executive-branch filer at all short-circuits to empty")
+    func noExecutiveMemberShortCircuits() {
+        let feed = makeFeed([
+            mk("w-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("w-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-02"),
+        ])
+        #expect(Standouts.crossBranchTicker(in: feed).isEmpty)
+    }
+
+    @Test("A Congress member and an executive filer outside the window do not qualify")
+    func outsideWindowDoesNotQualify() {
+        let feed = makeMixedFeed([
+            mk("v-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("v-m2", member: "m2", ticker: "AAA", disclosed: "2026-04-01"),
+        ], chambers: ["m1": .house, "m2": .executive])
+        #expect(Standouts.crossBranchTicker(in: feed).isEmpty)
+    }
+
     // MARK: - Headline
 
     @Test("Headline leads with the over-a-year-late count when 3 or more")

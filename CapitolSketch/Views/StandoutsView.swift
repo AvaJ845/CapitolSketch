@@ -18,7 +18,7 @@ struct StandoutsView: View {
     /// `store.standouts`.
     private enum Row: CaseIterable {
         case topBracket, filedLate, widelyHeld, newPosition, offPattern, rareTrader, memberLargest
-        case memberVolumeTrend, tickerCluster
+        case memberVolumeTrend, tickerCluster, crossBranchTicker
 
         var title: String {
             switch self {
@@ -31,6 +31,7 @@ struct StandoutsView: View {
             case .memberLargest: return "Each member's biggest"
             case .memberVolumeTrend: return "Trading more than usual"
             case .tickerCluster: return "Several members, same week"
+            case .crossBranchTicker: return "Crossing Congress and the executive branch"
             }
         }
 
@@ -54,6 +55,8 @@ struct StandoutsView: View {
                 return "A member's own trade count in the last 30 days, compared with their own pace over the rest of this snapshot — never compared to another member."
             case .tickerCluster:
                 return "Distinct members who disclosed a trade in the same stock within 7 days of each other — a count of filers and timing, not of shares or dollars."
+            case .crossBranchTicker:
+                return "The same fact as \"Several members, same week,\" scoped to a cluster that includes both Congress and the executive branch — a count of filers and timing, never a relationship between them."
             }
         }
 
@@ -67,6 +70,7 @@ struct StandoutsView: View {
             case .memberLargest: return .memberLargest
             case .memberVolumeTrend: return .memberVolumeTrend
             case .tickerCluster: return .tickerCluster
+            case .crossBranchTicker: return .crossBranchTicker
             case .widelyHeld: return nil
             }
         }
@@ -76,7 +80,7 @@ struct StandoutsView: View {
         var cap: Int {
             switch self {
             case .filedLate, .newPosition, .offPattern, .memberLargest, .memberVolumeTrend: return 15
-            case .topBracket, .widelyHeld, .rareTrader, .tickerCluster: return 10
+            case .topBracket, .widelyHeld, .rareTrader, .tickerCluster, .crossBranchTicker: return 10
             }
         }
     }

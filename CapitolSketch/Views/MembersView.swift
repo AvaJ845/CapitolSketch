@@ -28,29 +28,39 @@ struct MembersView: View {
                         NavigationLink(value: row.member) {
                             memberRow(row)
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(
-                                "\(row.member.name), "
-                                + (row.member.party == .unknown ? "" : "\(row.member.party.label), ")
-                                + "\(row.member.chamber.label) \(row.member.seat), "
-                                + "\(row.count) disclosed trade\(row.count == 1 ? "" : "s")"
-                            )
+                            .accessibilityLabel(accessibilityLabel(for: row))
                         }
                         .disclosureRowChrome()
                     }
                 } header: {
-                    Text("\(rows.count) members with disclosed trades")
+                    Text("\(rows.count) people with disclosed trades")
                 } footer: {
                     Text("Counts are disclosed transactions in the loaded filing years, not portfolio size.")
                 }
             }
             .listStyle(.insetGrouped)
             .gazetteChrome()
-            .navigationTitle("Members")
+            .navigationTitle("People")
             .searchable(text: $query, prompt: "Name or state")
             .navigationDestination(for: Member.self) { MemberDetailView(member: $0) }
             .navigationDestination(for: Trade.self) { DisclosureDetailView(trade: $0) }
             .navigationDestination(for: FilingRoute.self) { FilingView(filingID: $0.id) }
         }
+    }
+
+    /// "Pam Bondi, Executive Branch, 4 disclosed trades" — every part that is empty
+    /// (an unknown party, an executive-branch filer's blank seat) is dropped rather than
+    /// left as a dangling separator, the same filtering `memberRow`'s visible `seatText`
+    /// already does.
+    private func accessibilityLabel(for row: (member: Member, count: Int)) -> String {
+        let parts = [
+            row.member.name,
+            row.member.party == .unknown ? nil : row.member.party.label,
+            row.member.chamber.label,
+            row.member.seat.isEmpty ? nil : row.member.seat,
+        ].compactMap { $0 }
+        return (parts + ["\(row.count) disclosed trade\(row.count == 1 ? "" : "s")"])
+            .joined(separator: ", ")
     }
 
     /// One member. Monogram, name and seat beside the trade count normally; at the
