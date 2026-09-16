@@ -18,6 +18,7 @@ struct StandoutsView: View {
     /// `store.standouts`.
     private enum Row: CaseIterable {
         case topBracket, filedLate, widelyHeld, newPosition, offPattern, rareTrader, memberLargest
+        case memberVolumeTrend, tickerCluster
 
         var title: String {
             switch self {
@@ -28,6 +29,8 @@ struct StandoutsView: View {
             case .offPattern: return "Off the member's usual pattern"
             case .rareTrader: return "Members who rarely trade"
             case .memberLargest: return "Each member's biggest"
+            case .memberVolumeTrend: return "Trading more than usual"
+            case .tickerCluster: return "Several members, same week"
             }
         }
 
@@ -47,6 +50,10 @@ struct StandoutsView: View {
                 return "Every disclosed trade by a member who has disclosed three or fewer in this snapshot."
             case .memberLargest:
                 return "The single biggest bracket each member disclosed, when it was $250,000 or more."
+            case .memberVolumeTrend:
+                return "A member's own trade count in the last 30 days, compared with their own pace over the rest of this snapshot — never compared to another member."
+            case .tickerCluster:
+                return "Distinct members who disclosed a trade in the same stock within 7 days of each other — a count of filers and timing, not of shares or dollars."
             }
         }
 
@@ -58,6 +65,8 @@ struct StandoutsView: View {
             case .offPattern: return .offPattern
             case .rareTrader: return .rareTrader
             case .memberLargest: return .memberLargest
+            case .memberVolumeTrend: return .memberVolumeTrend
+            case .tickerCluster: return .tickerCluster
             case .widelyHeld: return nil
             }
         }
@@ -66,8 +75,8 @@ struct StandoutsView: View {
         /// they cap at 15; the rest cap at 10.
         var cap: Int {
             switch self {
-            case .filedLate, .newPosition, .offPattern, .memberLargest: return 15
-            case .topBracket, .widelyHeld, .rareTrader: return 10
+            case .filedLate, .newPosition, .offPattern, .memberLargest, .memberVolumeTrend: return 15
+            case .topBracket, .widelyHeld, .rareTrader, .tickerCluster: return 10
             }
         }
     }

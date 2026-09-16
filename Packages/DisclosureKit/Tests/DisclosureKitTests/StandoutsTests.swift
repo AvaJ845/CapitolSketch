@@ -33,6 +33,16 @@ struct StandoutsTests {
         )
     }
 
+    /// An ISO date `daysAgo` days before a fixed reference date, so a test can build a
+    /// history relative to its own most-recent trade without hardcoding a moving "today".
+    private func dateOffset(_ daysAgo: Int) -> String {
+        let calendar = Calendar(identifier: .gregorian)
+        let base = CalendarDate(iso: "2026-06-30")!.date(in: calendar)
+        let shifted = calendar.date(byAdding: .day, value: -daysAgo, to: base)!
+        let c = calendar.dateComponents([.year, .month, .day], from: shifted)
+        return CalendarDate(year: c.year!, month: c.month!, day: c.day!).iso
+    }
+
     // MARK: - Rule 1 · topBracket
 
     @Test("Top brackets: floor ≥ $5M only; reduced Spouse/DC Over $1M is not a top bracket")
@@ -182,6 +192,69 @@ struct StandoutsTests {
         #expect(rows.map(\.trade.memberID) == ["c", "a"])
         #expect(rows.map(\.trade.id) == ["c-1", "a-2"])
         #expect(rows.allSatisfy { $0.reason == "This member's largest disclosed" })
+    }
+
+    // MARK: - Rule 8 · memberVolumeTrend
+
+    @Test("Member volume trend: a burst well above a member's own baseline pace qualifies")
+    func memberVolumeTrend() {
+        var trades: [Trade] = []
+        // m1: a steady baseline of 1 trade roughly every 30 days for ~190 days (all older
+        // than the 30-day window), then a burst of 6 trades in the last 30 days — well
+        // above 3x their own pace.
+        for i in 0..<6 {
+            let day = 190 - i * 30
+            trades.append(mk("m1-base\(i)", member: "m1", ticker: "AAA",
+                             disclosed: dateOffset(day)))
+        }
+        for i in 0..<6 {
+            trades.append(mk("m1-burst\(i)", member: "m1", ticker: "AAA",
+                             disclosed: dateOffset(i)))
+        }
+        // m2: 4 trades in the last 30 days but no prior history at all — no baseline to
+        // compare against, so excluded rather than treated as an infinite multiple.
+        for i in 0..<4 {
+            trades.append(mk("m2-new\(i)", member: "m2", ticker: "BBB", disclosed: dateOffset(i)))
+        }
+        // m3: a steady pace with no burst — never qualifies.
+        for i in 0..<7 {
+            trades.append(mk("m3-steady\(i)", member: "m3", ticker: "CCC",
+                             disclosed: dateOffset(i * 30)))
+        }
+
+        let rows = Standouts.memberVolumeTrend(in: makeFeed(trades))
+        #expect(rows.map(\.trade.memberID) == ["m1"])
+        #expect(rows.first?.reason.contains("6 trades in the last 30 days") == true)
+        #expect(rows.first?.reason.contains("x this member's usual pace") == true)
+    }
+
+    // MARK: - Rule 9 · tickerCluster
+
+    @Test("Ticker cluster: 3 members within a week qualifies; a 4th member 20 days later is dropped")
+    func tickerCluster() {
+        let feed = makeFeed([
+            mk("c-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("c-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-04"),
+            mk("c-m3", member: "m3", ticker: "AAA", disclosed: "2026-03-07"),
+            mk("c-m4", member: "m4", ticker: "AAA", disclosed: "2026-03-27"),
+            // Only 2 members traded BBB — below the floor.
+            mk("d-m1", member: "m1", ticker: "BBB", disclosed: "2026-03-01"),
+            mk("d-m2", member: "m2", ticker: "BBB", disclosed: "2026-03-02"),
+        ])
+        let rows = Standouts.tickerCluster(in: feed)
+        #expect(rows.map(\.trade.id) == ["c-m3"])
+        #expect(rows.first?.reason == "3 members disclosed AAA trades within 6 days of each other")
+    }
+
+    @Test("Ticker cluster: a member disclosing the same ticker twice counts once")
+    func tickerClusterOneRowPerMember() {
+        let feed = makeFeed([
+            mk("e-m1a", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("e-m1b", member: "m1", ticker: "AAA", disclosed: "2026-03-02"),
+            mk("e-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-03"),
+            mk("e-m3", member: "m3", ticker: "AAA", disclosed: "2026-03-04"),
+        ])
+        #expect(Standouts.tickerCluster(in: feed).map(\.trade.memberID) == ["m3"])
     }
 
     // MARK: - Headline

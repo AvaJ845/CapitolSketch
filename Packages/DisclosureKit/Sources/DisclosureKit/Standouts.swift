@@ -14,6 +14,7 @@ public struct Standout: Identifiable, Sendable, Hashable {
 
     public enum Category: String, Sendable, CaseIterable {
         case topBracket, filedLate, newPosition, offPattern, rareTrader, memberLargest
+        case memberVolumeTrend, tickerCluster
     }
 
     public let category: Category
@@ -152,6 +153,8 @@ public enum Standouts {
             (.offPattern, offPattern(in: feed)),
             (.rareTrader, rareTrader(in: feed)),
             (.memberLargest, memberLargest(in: feed)),
+            (.memberVolumeTrend, memberVolumeTrend(in: feed)),
+            (.tickerCluster, tickerCluster(in: feed)),
         ]
         for (category, list) in lists where !list.isEmpty {
             out[category] = list
@@ -339,6 +342,100 @@ public enum Standouts {
             .map { Standout(category: .memberLargest, trade: $0, reason: "This member's largest disclosed") }
     }
 
+    // MARK: - Rule 8 · memberVolumeTrend
+
+    /// A member's own trade count in the last 30 days, against their own average pace over
+    /// the rest of their history in this feed — never against another member, and never
+    /// against the market. A fact about one person's filing rhythm.
+    static let recentWindowDays = 30
+    static let minRecentTradesForTrend = 4
+    static let minTrendMultiple = 3.0
+
+    public static func memberVolumeTrend(in feed: TradeFeed) -> [Standout] {
+        guard let anchor = feed.trades.map(\.disclosedDate).max() else { return [] }
+        let byMember = Dictionary(grouping: feed.trades, by: \.memberID)
+
+        var out: [Standout] = []
+        for (_, rows) in byMember {
+            let recent = rows.filter { $0.disclosedDate.days(to: anchor) <= recentWindowDays }
+            let baseline = rows.filter { $0.disclosedDate.days(to: anchor) > recentWindowDays }
+            guard recent.count >= minRecentTradesForTrend else { continue }
+            guard let earliestBaseline = baseline.map(\.disclosedDate).min() else { continue }
+
+            // Days of history behind the recent window, floored at one window's width so a
+            // member with only a few days of prior history cannot produce an inflated rate.
+            let baselineDays = max(
+                earliestBaseline.days(to: anchor) - recentWindowDays, recentWindowDays
+            )
+            let baselineRate = Double(baseline.count) / Double(baselineDays) * Double(recentWindowDays)
+            guard baselineRate > 0 else { continue }
+
+            let multiple = Double(recent.count) / baselineRate
+            guard multiple >= minTrendMultiple else { continue }
+            guard let latest = recent.max(by: { $0.disclosedDate < $1.disclosedDate }) else { continue }
+
+            out.append(Standout(
+                category: .memberVolumeTrend, trade: latest,
+                reason: "\(recent.count) trades in the last \(recentWindowDays) days — "
+                    + "about \(multiple.trendMultipleLabel)x this member's usual pace"
+            ))
+        }
+        return out.sorted(by: recencyThenID)
+    }
+
+    // MARK: - Rule 9 · tickerCluster
+
+    /// Distinct members who disclosed a trade in the same ticker within a tight window of
+    /// each other — a fact about filing *timing*, not the ticker's overall popularity (that
+    /// is `widelyHeldTickers`, which has no time bound). One row per member per ticker, so a
+    /// member filing the same stock twice in a week is not counted as two people. One row
+    /// per ticker, at its widest qualifying cluster.
+    static let clusterWindowDays = 7
+    static let clusterMinMembers = 3
+
+    public static func tickerCluster(in feed: TradeFeed) -> [Standout] {
+        var byTicker: [String: [Trade]] = [:]
+        for t in feed.trades {
+            guard let raw = t.ticker else { continue }
+            byTicker[raw.uppercased(), default: []].append(t)
+        }
+
+        var out: [Standout] = []
+        for (ticker, rows) in byTicker {
+            let latestPerMember = Dictionary(grouping: rows, by: \.memberID)
+                .compactMap { _, memberRows in memberRows.max(by: { $0.disclosedDate < $1.disclosedDate }) }
+                .sorted { $0.disclosedDate < $1.disclosedDate }
+            guard latestPerMember.count >= clusterMinMembers else { continue }
+
+            // Sliding window over dates already sorted ascending: the widest run of members
+            // whose disclosed dates all fall within `clusterWindowDays` of the window's ends.
+            var left = 0
+            var best: (left: Int, right: Int, span: Int)?
+            for right in latestPerMember.indices {
+                while latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                        > clusterWindowDays {
+                    left += 1
+                }
+                let count = right - left + 1
+                guard count >= clusterMinMembers else { continue }
+                let span = latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                let bestCount = best.map { $0.right - $0.left + 1 } ?? 0
+                if count > bestCount || (count == bestCount && span < best!.span) {
+                    best = (left, right, span)
+                }
+            }
+            guard let winner = best else { continue }
+
+            let members = winner.right - winner.left + 1
+            let anchor = latestPerMember[winner.right]
+            let reason = winner.span == 0
+                ? "\(members) members disclosed \(ticker) trades the same day"
+                : "\(members) members disclosed \(ticker) trades within \(winner.span) days of each other"
+            out.append(Standout(category: .tickerCluster, trade: anchor, reason: reason))
+        }
+        return out.sorted(by: recencyThenID)
+    }
+
     // MARK: - Shared ordering
 
     /// Most recently disclosed first, then id ascending.
@@ -347,6 +444,16 @@ public enum Standouts {
             return a.trade.disclosedDate > b.trade.disclosedDate
         }
         return a.trade.id < b.trade.id
+    }
+}
+
+private extension Double {
+    /// "3" for a whole multiple, "3.5" for a fraction — never more than one decimal place.
+    var trendMultipleLabel: String {
+        let rounded = (self * 10).rounded() / 10
+        return rounded == rounded.rounded()
+            ? String(Int(rounded))
+            : String(format: "%.1f", rounded)
     }
 }
 
