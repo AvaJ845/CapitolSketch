@@ -18,7 +18,7 @@ struct StandoutsView: View {
     /// `store.standouts`.
     private enum Row: CaseIterable {
         case topBracket, filedLate, widelyHeld, newPosition, offPattern, rareTrader, memberLargest
-        case memberVolumeTrend, tickerCluster, crossBranchTicker, committeeCluster
+        case memberVolumeTrend, tickerCluster, crossBranchTicker, committeeCluster, ownerPattern
 
         var title: String {
             switch self {
@@ -33,6 +33,7 @@ struct StandoutsView: View {
             case .tickerCluster: return "Several members, same week"
             case .crossBranchTicker: return "Crossing Congress and the executive branch"
             case .committeeCluster: return "Same committee, same stock, same week"
+            case .ownerPattern: return "Mostly filed under a family member's account"
             }
         }
 
@@ -60,6 +61,8 @@ struct StandoutsView: View {
                 return "The same fact as \"Several members, same week,\" scoped to a cluster that includes both Congress and the executive branch — a count of filers and timing, never a relationship between them."
             case .committeeCluster:
                 return "Members who serve on the same committee and disclosed a trade in the same stock within 7 days of each other — a count of committee co-membership and timing, never a claim that the committee relates to the stock."
+            case .ownerPattern:
+                return "At least 80% of a member's disclosed trades filed under a spouse's or dependent's account rather than their own, from the form's own owner field. Not a claim about who made the trade."
             }
         }
 
@@ -75,6 +78,7 @@ struct StandoutsView: View {
             case .tickerCluster: return .tickerCluster
             case .crossBranchTicker: return .crossBranchTicker
             case .committeeCluster: return .committeeCluster
+            case .ownerPattern: return .ownerPattern
             case .widelyHeld: return nil
             }
         }
@@ -83,7 +87,9 @@ struct StandoutsView: View {
         /// they cap at 15; the rest cap at 10.
         var cap: Int {
             switch self {
-            case .filedLate, .newPosition, .offPattern, .memberLargest, .memberVolumeTrend: return 15
+            case .filedLate, .newPosition, .offPattern, .memberLargest, .memberVolumeTrend,
+                 .ownerPattern:
+                return 15
             case .topBracket, .widelyHeld, .rareTrader, .tickerCluster, .crossBranchTicker,
                  .committeeCluster:
                 return 10
@@ -167,6 +173,29 @@ struct StandoutsView: View {
                 }
             }
 
+            if !store.compositionByType.isEmpty || !store.compositionByAssetType.isEmpty {
+                Section {
+                    if !store.compositionByType.isEmpty {
+                        compositionRow(
+                            label: "By transaction type",
+                            items: store.compositionByType.map { ($0.type.verb, $0.count) }
+                        )
+                    }
+                    if !store.compositionByAssetType.isEmpty {
+                        compositionRow(
+                            label: "By asset type",
+                            items: store.compositionByAssetType.map {
+                                (Trade.assetTypeNames[$0.code] ?? $0.code, $0.count)
+                            }
+                        )
+                    }
+                } header: {
+                    Text("This snapshot's mix")
+                } footer: {
+                    Text("Counts of disclosed transactions, not of shares or dollars — a buy is not a gain and a sale is not a loss.")
+                }
+            }
+
             ForEach(Row.allCases, id: \.self) { row in
                 section(for: row)
                     .id(row)
@@ -184,6 +213,31 @@ struct StandoutsView: View {
         }
         .listStyle(.insetGrouped)
         .gazetteChrome()
+    }
+
+    /// A label followed by "58% Bought · 34% Sold · 8% Exchanged" — every item and its
+    /// share of the total, in the order given (already most-common-first from
+    /// `Standouts.compositionByTransactionType` / `compositionByAssetType`). Items under
+    /// 1% are still counted in the total but dropped from the line so it stays readable
+    /// when a snapshot has many asset-type codes.
+    private func compositionRow(label: String, items: [(name: String, count: Int)]) -> some View {
+        let total = items.reduce(0) { $0 + $1.count }
+        let parts = items.compactMap { name, count -> String? in
+            guard total > 0 else { return nil }
+            let pct = Int((Double(count) / Double(total) * 100).rounded())
+            return pct >= 1 ? "\(pct)% \(name)" : nil
+        }
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(parts.joined(separator: " · "))
+                .font(.callout.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 2)
+        .listRowBackground(Ink.card)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder

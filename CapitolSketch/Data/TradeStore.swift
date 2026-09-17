@@ -30,6 +30,10 @@ final class TradeStore {
     private(set) var standouts: [Standout.Category: [Standout]] = [:]
     /// Tickers in the most members' filings this snapshot.
     private(set) var widelyHeld: [WidelyHeldTicker] = []
+    /// Transaction types across the whole snapshot, most common first.
+    private(set) var compositionByType: [TransactionTypeCount] = []
+    /// Asset types across the whole snapshot, most common first.
+    private(set) var compositionByAssetType: [AssetTypeCount] = []
     /// A plain-language headline for the feed's Standouts card — the striking fact that
     /// tells the reader there's something worth a tap. `nil` for a tiny snapshot.
     private(set) var standoutHeadline: StandoutHeadline?
@@ -56,6 +60,8 @@ final class TradeStore {
         guard !snapshot.trades.isEmpty else {
             standouts = [:]
             widelyHeld = []
+            compositionByType = []
+            compositionByAssetType = []
             standoutHeadline = nil
             standoutsLoading = false
             return
@@ -68,6 +74,8 @@ final class TradeStore {
                 let widelyHeld = Standouts.widelyHeldTickers(in: snapshot)
                 return (byCategory: byCategory,
                         widelyHeld: widelyHeld,
+                        byType: Standouts.compositionByTransactionType(in: snapshot),
+                        byAssetType: Standouts.compositionByAssetType(in: snapshot),
                         headline: Standouts.headline(in: snapshot,
                                                      byCategory: byCategory,
                                                      widelyHeld: widelyHeld))
@@ -76,6 +84,8 @@ final class TradeStore {
             guard let self else { return }
             self.standouts = computed.byCategory
             self.widelyHeld = computed.widelyHeld
+            self.compositionByType = computed.byType
+            self.compositionByAssetType = computed.byAssetType
             self.standoutHeadline = computed.headline
             self.standoutsLoading = false
             #if DEBUG

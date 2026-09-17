@@ -15,6 +15,7 @@ public struct Standout: Identifiable, Sendable, Hashable {
     public enum Category: String, Sendable, CaseIterable {
         case topBracket, filedLate, newPosition, offPattern, rareTrader, memberLargest
         case memberVolumeTrend, tickerCluster, crossBranchTicker, committeeCluster
+        case ownerPattern
     }
 
     public let category: Category
@@ -45,6 +46,33 @@ public struct WidelyHeldTicker: Identifiable, Sendable, Hashable {
         self.ticker = ticker
         self.memberCount = memberCount
         self.tradeCount = tradeCount
+    }
+}
+
+/// One transaction type's share of the whole snapshot — a count, never a claim about
+/// gains or losses (`TradeType.verb`'s own rule: "buying is not a gain and selling is
+/// not a loss").
+public struct TransactionTypeCount: Identifiable, Sendable, Hashable {
+    public let type: TradeType
+    public let count: Int
+    public var id: String { type.rawValue }
+
+    public init(type: TradeType, count: Int) {
+        self.type = type
+        self.count = count
+    }
+}
+
+/// One asset-type code's share of the whole snapshot — the same codes the form itself
+/// prints (`Trade.assetType`), most common first.
+public struct AssetTypeCount: Identifiable, Sendable, Hashable {
+    public let code: String
+    public let count: Int
+    public var id: String { code }
+
+    public init(code: String, count: Int) {
+        self.code = code
+        self.count = count
     }
 }
 
@@ -157,6 +185,7 @@ public enum Standouts {
             (.tickerCluster, tickerCluster(in: feed)),
             (.crossBranchTicker, crossBranchTicker(in: feed)),
             (.committeeCluster, committeeCluster(in: feed)),
+            (.ownerPattern, ownerPattern(in: feed)),
         ]
         for (category, list) in lists where !list.isEmpty {
             out[category] = list
@@ -573,6 +602,59 @@ public enum Standouts {
             }
         }
         return out.sorted(by: recencyThenID)
+    }
+
+    // MARK: - Rule 12 · ownerPattern
+
+    /// A member whose disclosed trades are overwhelmingly filed under a spouse or
+    /// dependent account rather than their own — a fact about whose name is on the
+    /// filing, read verbatim from `Trade.owner`, the same field the form itself reports.
+    /// Never a claim about who actually decided the trade, which the form does not state.
+    /// `.joint` is deliberately excluded from "not self": a joint account is still partly
+    /// the member's own, unlike a spouse's or a dependent's separate account.
+    static let ownerPatternMinTrades = 5
+    static let ownerPatternThreshold = 0.8
+
+    public static func ownerPattern(in feed: TradeFeed) -> [Standout] {
+        let byMember = Dictionary(grouping: feed.trades, by: \.memberID)
+
+        var out: [Standout] = []
+        for (_, rows) in byMember {
+            guard rows.count >= ownerPatternMinTrades else { continue }
+            let familyOwned = rows.filter { $0.owner == .spouse || $0.owner == .dependent }
+            guard Double(familyOwned.count) / Double(rows.count) >= ownerPatternThreshold else { continue }
+            guard let latest = familyOwned.max(by: { $0.disclosedDate < $1.disclosedDate }) else { continue }
+
+            let pct = Int((Double(familyOwned.count) / Double(rows.count) * 100).rounded())
+            out.append(Standout(
+                category: .ownerPattern, trade: latest,
+                reason: "\(pct)% of this member's disclosed trades are filed under "
+                    + "a spouse or dependent account"
+            ))
+        }
+        return out.sorted(by: recencyThenID)
+    }
+
+    // MARK: - Snapshot composition
+
+    /// Every disclosed transaction type in the snapshot, most common first — a plain
+    /// count, the same "buying is not a gain and selling is not a loss" neutrality
+    /// `TradeType.verb` already states.
+    public static func compositionByTransactionType(in feed: TradeFeed) -> [TransactionTypeCount] {
+        let counts = Dictionary(grouping: feed.trades, by: \.txType).mapValues(\.count)
+        return TradeType.allCases
+            .compactMap { type in counts[type].map { TransactionTypeCount(type: type, count: $0) } }
+            .sorted { $0.count > $1.count }
+    }
+
+    /// Every disclosed asset-type code in the snapshot, most common first. Rows with no
+    /// stated asset type are left out rather than counted as their own category.
+    public static func compositionByAssetType(in feed: TradeFeed) -> [AssetTypeCount] {
+        let counts = Dictionary(grouping: feed.trades.compactMap(\.assetType), by: { $0 })
+            .mapValues(\.count)
+        return counts
+            .map { AssetTypeCount(code: $0.key, count: $0.value) }
+            .sorted { a, b in a.count != b.count ? a.count > b.count : a.code < b.code }
     }
 
     // MARK: - Shared ordering

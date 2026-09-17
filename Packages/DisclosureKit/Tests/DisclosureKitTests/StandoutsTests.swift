@@ -21,10 +21,10 @@ struct StandoutsTests {
     private func mk(
         _ id: String, member: String, ticker: String? = nil, assetType: String? = "ST",
         amount: DisclosedAmount? = nil, tx: String = "2026-03-01", disclosed: String = "2026-03-15",
-        type: TradeType = .buy
+        type: TradeType = .buy, owner: TradeOwner = .self
     ) -> Trade {
         Trade(
-            id: id, memberID: member, memberName: member, owner: .self,
+            id: id, memberID: member, memberName: member, owner: owner,
             asset: ticker ?? "Some Asset", ticker: ticker, assetType: assetType, txType: type,
             txDate: CalendarDate(iso: tx)!, disclosedDate: CalendarDate(iso: disclosed)!,
             amount: amount ?? DisclosedAmount(kind: .range, lowCents: 100_100, highCents: 1_500_000,
@@ -158,6 +158,67 @@ struct StandoutsTests {
         let rows = Standouts.offPattern(in: makeFeed(trades))
         #expect(rows.map(\.trade.id) == ["p1-st"])
         #expect(rows.first?.reason == "A single stock — this member's filings are otherwise almost all funds")
+    }
+
+    // MARK: - Rule 12 · ownerPattern
+
+    @Test("Owner pattern: 4 of 5 spouse/dependent trades qualifies; joint accounts don't count toward it")
+    func ownerPatternFires() {
+        var trades: [Trade] = []
+        // q1: 4 spouse, 1 self — 80%, right at the floor.
+        for i in 0..<4 { trades.append(mk("q1-sp\(i)", member: "q1", owner: .spouse)) }
+        trades.append(mk("q1-self", member: "q1", owner: .self))
+        // q2: 5 trades, but only joint + self — joint never counts as "not self".
+        for i in 0..<3 { trades.append(mk("q2-jt\(i)", member: "q2", owner: .joint)) }
+        for i in 0..<2 { trades.append(mk("q2-self\(i)", member: "q2", owner: .self)) }
+
+        let rows = Standouts.ownerPattern(in: makeFeed(trades))
+        #expect(rows.count == 1)
+        #expect(rows.first?.trade.memberID == "q1")
+        #expect(rows.first?.reason == "80% of this member's disclosed trades are filed under a spouse or dependent account")
+    }
+
+    @Test("Owner pattern: fewer than 5 trades never qualifies, however lopsided")
+    func ownerPatternRequiresMinimumVolume() {
+        let trades = (0..<4).map { mk("r1-sp\($0)", member: "r1", owner: .spouse) }
+        #expect(Standouts.ownerPattern(in: makeFeed(trades)).isEmpty)
+    }
+
+    @Test("Owner pattern: a 50/50 split does not qualify")
+    func ownerPatternRequiresLopsidedSplit() {
+        var trades: [Trade] = []
+        for i in 0..<3 { trades.append(mk("s1-sp\(i)", member: "s1", owner: .spouse)) }
+        for i in 0..<3 { trades.append(mk("s1-self\(i)", member: "s1", owner: .self)) }
+        #expect(Standouts.ownerPattern(in: makeFeed(trades)).isEmpty)
+    }
+
+    // MARK: - Snapshot composition
+
+    @Test("Composition by transaction type: a plain count, most common first, absent types omitted")
+    func compositionByTransactionType() {
+        var trades: [Trade] = []
+        for i in 0..<5 { trades.append(mk("t1-\(i)", member: "t1", type: .buy)) }
+        for i in 0..<3 { trades.append(mk("t2-\(i)", member: "t1", type: .sell)) }
+        trades.append(mk("t3", member: "t1", type: .exchange))
+
+        let rows = Standouts.compositionByTransactionType(in: makeFeed(trades))
+        #expect(rows.map(\.type) == [.buy, .sell, .exchange])
+        #expect(rows.map(\.count) == [5, 3, 1])
+        // partialSell never appears in this feed, so it is omitted, not shown as zero.
+        #expect(!rows.contains { $0.type == .partialSell })
+    }
+
+    @Test("Composition by asset type: a plain count, most common first, ties broken alphabetically")
+    func compositionByAssetType() {
+        var trades: [Trade] = []
+        for i in 0..<4 { trades.append(mk("u1-\(i)", member: "u1", assetType: "ST")) }
+        for i in 0..<4 { trades.append(mk("u2-\(i)", member: "u1", assetType: "MF")) }
+        trades.append(mk("u3", member: "u1", assetType: nil)) // no stated asset type
+
+        let rows = Standouts.compositionByAssetType(in: makeFeed(trades))
+        #expect(rows.map(\.code) == ["MF", "ST"]) // tie broken alphabetically
+        #expect(rows.map(\.count) == [4, 4])
+        #expect(rows.reduce(0) { $0 + $1.count } == 8) // the nil-asset-type row is excluded
     }
 
     // MARK: - Rule 6 · rareTrader
