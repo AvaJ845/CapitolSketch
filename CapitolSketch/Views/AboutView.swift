@@ -80,16 +80,6 @@ struct AboutView: View {
                     ))
                     .listRowBackground(Ink.card)
 
-                    if watchlist.notificationsEnabled && notificationStatus == .denied {
-                        Label(
-                            "Notifications are turned off for this app in Settings.",
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(Ink.lag)
-                        .listRowBackground(Ink.card)
-                    }
-
                     Toggle("Weekly snapshot summary", isOn: Binding(
                         get: { store.weeklyDigestEnabled },
                         set: { newValue in
@@ -103,6 +93,20 @@ struct AboutView: View {
                         }
                     ))
                     .listRowBackground(Ink.card)
+
+                    // One shared warning for both toggles above: they both ultimately
+                    // depend on the same system notification permission, so two
+                    // near-identical warnings would just be noise.
+                    if (watchlist.notificationsEnabled || store.weeklyDigestEnabled),
+                       notificationStatus == .denied {
+                        Label(
+                            "Notifications are turned off for this app in Settings.",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(Ink.lag)
+                        .listRowBackground(Ink.card)
+                    }
                 } header: {
                     Text("Alerts")
                 } footer: {

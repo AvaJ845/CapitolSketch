@@ -416,12 +416,14 @@ struct FeedTests {
 
     @Test("A feed round-trips through its coder")
     func feedRoundTrip() throws {
+        let seedTime = Date(timeIntervalSince1970: 1_780_000_000)
+        let refreshTime = seedTime.addingTimeInterval(3600)
         let feed = TradeFeed(
-            generatedAt: Date(timeIntervalSince1970: 1_780_000_000),
+            generatedAt: refreshTime, seedGeneratedAt: seedTime,
             indexYears: [2025, 2026], source: "test",
             members: [Member(id: "P000197", bioguideID: "P000197", name: "Nancy Pelosi",
                              state: "CA", district: "11", chamber: .house)],
-            trades: [trade(ticker: "BE", type: "ST")],
+            trades: [trade(ticker: "BE", type: "ST", isAmendment: true)],
             stats: ParseStats(filingsProcessed: 1, tradesParsed: 1)
         )
         let (encoder, decoder) = TradeFeed.makeCoder()
@@ -429,6 +431,11 @@ struct FeedTests {
         #expect(restored.trades.count == 1)
         #expect(restored.trades[0].txDate.iso == "2026-07-24")
         #expect(restored.trades[0].amount.label == "$1,001 – $15,000")
+        // Both fields added this session — neither has a custom Codable path, so this
+        // guards against a future custom CodingKeys enum silently dropping either.
+        #expect(restored.trades[0].isAmendment == true)
+        #expect(restored.generatedAt == refreshTime)
+        #expect(restored.seedGeneratedAt == seedTime)
         #expect(restored.chambersCovered == [.house])
         #expect(restored.schemaVersion == TradeFeed.currentSchemaVersion)
     }

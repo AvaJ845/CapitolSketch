@@ -86,6 +86,11 @@ final class TradeStore {
             compositionByAssetType = []
             standoutHeadline = nil
             standoutsLoading = false
+            // An empty feed (a load error, or a moment mid-refresh) still has to
+            // reconcile the weekly digest — otherwise a notification scheduled from an
+            // earlier, non-empty feed keeps firing with stale content indefinitely,
+            // since nothing else on this path would ever cancel or update it.
+            Task { await self.rescheduleWeeklyDigestIfNeeded() }
             return
         }
         standoutsLoading = true
