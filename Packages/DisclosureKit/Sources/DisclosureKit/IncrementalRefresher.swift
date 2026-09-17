@@ -92,6 +92,20 @@ public enum IncrementalRefresher {
         cacheDirectory: URL? = nil,
         session: URLSession = .shared
     ) async -> Outcome {
+        // `seed` is documented as "bundled snapshot or a previous refresh" — `.empty`
+        // (generatedAt == .distantPast) is neither, it means whoever is calling this
+        // has no real data yet. Comparing every filing in the Clerk's index against an
+        // empty known-filings set would treat all of them as "new," and with maxDownloads
+        // capping that at a handful, the result is a tiny, House-only sliver of the real
+        // data. Confirmed live: the widget extension has no bundled snapshot of its own to
+        // read (`seed-filings.json` ships only in the main app's bundle), so if it ever
+        // refreshes before the app has seeded their shared container, it was doing exactly
+        // this — then persisting that sliver with today's timestamp, which then beat the
+        // real snapshot in every future freshest-wins comparison and replaced it for good.
+        // Only whoever holds the real snapshot may seed a feed from nothing; this function
+        // never does that on its own.
+        guard seed.generatedAt != .distantPast else { return Outcome(feed: nil, report: Report()) }
+
         var report = Report()
         let years = years ?? FilingIndex.relevantYears()
 

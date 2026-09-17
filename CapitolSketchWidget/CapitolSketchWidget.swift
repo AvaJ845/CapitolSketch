@@ -154,6 +154,13 @@ struct Provider: AppIntentTimelineProvider {
     /// full-year ingest. The request pattern does not depend on the watchlist.
     private func refreshFromClerk() async {
         let seed = loadFeed()
+
+        // `loadFeed()` falls back to `.empty` when the app hasn't seeded the shared
+        // container yet — the widget has no bundled snapshot of its own to fall back to
+        // instead (`seed-filings.json` ships only in the main app's bundle).
+        // `IncrementalRefresher.refresh` itself refuses to run against that sentinel; see
+        // its own doc comment for why merging onto it would have corrupted the shared
+        // feed. Nothing to do here yet — the next timeline request tries again.
         let outcome = await IncrementalRefresher.refresh(
             seed: seed,
             maxDownloads: 4,

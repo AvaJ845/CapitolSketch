@@ -45,6 +45,37 @@ struct FetchTests {
         )
     }
 
+    // MARK: - 0. Refusing to run against an unseeded feed
+
+    @Test("A never-seeded (.empty) feed is refused before any network call, not treated as zero known filings")
+    func emptySeedNeverRefreshes() async {
+        // `.empty`'s generatedAt is `.distantPast` — the sentinel for "nobody has ever
+        // seeded this yet," not a legitimate zero-filings starting point. Confirmed live:
+        // the widget extension has no bundled snapshot to fall back to, so if it refreshed
+        // before the app seeded their shared container, every filing in the Clerk's index
+        // looked "new," the per-run download cap capped that to a handful, and the tiny
+        // result's fresh `generatedAt` then permanently beat the real ~14k-trade snapshot
+        // in every later freshest-wins comparison. Asserting zero requests, not just an
+        // empty result, is the point: a caller must never be able to observe this as "the
+        // Clerk had nothing new," which would look identical to a healthy quiet day.
+        StubURLProtocol.reset()
+        StubURLProtocol.handler = { request in
+            Issue.record("the Clerk was contacted for an unseeded refresh: \(request.url?.absoluteString ?? "?")")
+            return (StubURLProtocol.response(for: request, status: 404), Data())
+        }
+
+        let outcome = await IncrementalRefresher.refresh(
+            seed: .empty,
+            years: [2026],
+            cacheDirectory: nil,
+            session: StubURLProtocol.makeSession()
+        )
+
+        #expect(outcome.feed == nil)
+        #expect(outcome.report == IncrementalRefresher.Report())
+        #expect(StubURLProtocol.recordedURLs.isEmpty)
+    }
+
     // MARK: - 1. Oversized index response
 
     @Test("An index response past the size cap is refused, not buffered")
