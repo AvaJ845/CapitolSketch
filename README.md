@@ -3,9 +3,9 @@
 An iOS app that tracks stock trades disclosed by members of the US Congress, with a
 personal watchlist that tells you when a member trades a ticker you hold.
 
-House and Senate. Read-only. No brokerage, no account, no analytics. Nothing here is
-investment advice. Senate paper filings are counted but not machine-readable (see
-[Known limitations](#known-limitations)).
+House, Senate, the President, and Cabinet secretaries. Read-only. No brokerage, no
+account, no analytics. Nothing here is investment advice. Senate paper filings are
+counted but not machine-readable (see [Known limitations](#known-limitations)).
 
 App Store name: **CapitolSketch: Congress Trade**. Home Screen: **CapitolSketch**.
 
@@ -187,6 +187,17 @@ These are real and worth stating plainly:
   `seedgen` reads it from the same `congress-legislators` dataset it uses for Bioguide
   IDs and committees, and bakes it into the seed. Shown as a plain "D" / "R" / "I" tag,
   never a colour, never aggregated. A member the crosswalk did not place shows no tag.
+- **No federal judges, including Supreme Court Justices — a deliberate scope decision,
+  not a gap.** Judges have filed real PTRs since the 2022 Courthouse Ethics and
+  Transparency Act, and the Administrative Office of the U.S. Courts runs a public
+  search database for them (`pub.jefs.uscourts.gov`). But retrieving an actual filing
+  there — unlike every source above — requires registering a real identity (name,
+  occupation, mailing address) and certifying the request under penalty of perjury; it
+  is not an anonymous, bulk-downloadable primary source the way the Clerk's index,
+  Senate eFD, whitehouse.gov, and OGE's REST API all are. Automating that certification
+  on an unattended build isn't something this project will do, and a third-party mirror
+  (e.g. ProPublica's Supreme Connections) would break the "no third-party feed" rule
+  every other source in this app follows. Investigated, not pursued.
 
 ## Regulatory risk
 
