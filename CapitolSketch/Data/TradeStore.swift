@@ -107,6 +107,16 @@ final class TradeStore {
         feed.generatedAt == .distantPast ? nil : feed.generatedAt
     }
 
+    /// When the full, multi-source snapshot — House, Senate, Executive, Cabinet, whatever
+    /// this build shipped — was actually built. Unlike `generatedAt`, this never moves on
+    /// an on-device refresh: House is the only source that ever refreshes that way, so
+    /// `generatedAt` alone would make Senate/Executive/Cabinet data look exactly as fresh
+    /// as the House row a refresh just added. Only worth showing separately once there is
+    /// more than one source to disambiguate — see `isMultiChamber`.
+    var seedGeneratedAt: Date? {
+        feed.seedGeneratedAt == .distantPast ? nil : feed.seedGeneratedAt
+    }
+
     /// When a refresh last genuinely reached the House Clerk (a 200 on the index or a
     /// legitimate 304). Nil until the first successful contact. Surfaced separately from
     /// `generatedAt` so a silent index freeze — an outage, or a forced bad response —

@@ -76,7 +76,25 @@ struct DataQualityView: View {
                         "Disclosed transactions in the loaded filings.")
                 statRow(store.members.count.formatted(), membersDescription)
                 statRow(filingYears, "Filing years covered by this snapshot.")
-                if let generatedAt = store.generatedAt {
+                // Every source shares one `generatedAt` on a fresh build, but House is the
+                // only one that ever refreshes again on this device — a single "when this
+                // was assembled" line would let a House refresh make Senate, Executive
+                // Branch, and Cabinet data look exactly as current as House. Split the two
+                // apart once there is more than one source for that to matter.
+                if store.isMultiChamber {
+                    if let seedGeneratedAt = store.seedGeneratedAt {
+                        statRow(seedGeneratedAt.formatted(date: .abbreviated, time: .shortened),
+                                "When this build's full snapshot — House, Senate, Executive "
+                                + "Branch, and Cabinet — was assembled. Only House updates "
+                                + "again without a new build.")
+                    }
+                    if let generatedAt = store.generatedAt, let seedGeneratedAt = store.seedGeneratedAt,
+                       generatedAt > seedGeneratedAt {
+                        statRow(generatedAt.formatted(date: .abbreviated, time: .shortened),
+                                "When House data was last refreshed on this device · "
+                                + "\(DataAgeLine.age(of: generatedAt)).")
+                    }
+                } else if let generatedAt = store.generatedAt {
                     statRow(generatedAt.formatted(date: .abbreviated, time: .shortened),
                             "When this data was assembled · \(DataAgeLine.age(of: generatedAt)).")
                 }

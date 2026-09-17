@@ -40,13 +40,15 @@ public enum FeedBuilder {
         chambersCovered: [Chamber] = [.house],
         source: String = TradeFeed.houseClerkSource,
         nameToMemberID: [String: String] = [:],
-        generatedAt: Date = Date()
+        generatedAt: Date = Date(),
+        seedGeneratedAt: Date? = nil
     ) -> TradeFeed {
         let rows = sorted(deduplicate(trades))
         var stats = stats
         stats.tradesParsed = rows.count
         return TradeFeed(
             generatedAt: generatedAt,
+            seedGeneratedAt: seedGeneratedAt,
             indexYears: indexYears.sorted(),
             source: source,
             chambersCovered: chambersCovered,
@@ -97,7 +99,11 @@ public enum FeedBuilder {
             chambersCovered: seed.chambersCovered,
             source: seed.source,
             nameToMemberID: names,
-            generatedAt: generatedAt
+            generatedAt: generatedAt,
+            // Never advances on a merge — House is the only source that ever refreshes
+            // this way, so the moment the full multi-source snapshot was actually built
+            // must survive every on-device refresh unchanged.
+            seedGeneratedAt: seed.seedGeneratedAt
         )
     }
 }
