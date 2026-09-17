@@ -14,7 +14,7 @@ public struct Standout: Identifiable, Sendable, Hashable {
 
     public enum Category: String, Sendable, CaseIterable {
         case topBracket, filedLate, newPosition, offPattern, rareTrader, memberLargest
-        case memberVolumeTrend, tickerCluster, crossBranchTicker
+        case memberVolumeTrend, tickerCluster, crossBranchTicker, committeeCluster
     }
 
     public let category: Category
@@ -156,6 +156,7 @@ public enum Standouts {
             (.memberVolumeTrend, memberVolumeTrend(in: feed)),
             (.tickerCluster, tickerCluster(in: feed)),
             (.crossBranchTicker, crossBranchTicker(in: feed)),
+            (.committeeCluster, committeeCluster(in: feed)),
         ]
         for (category, list) in lists where !list.isEmpty {
             out[category] = list
@@ -497,6 +498,79 @@ public enum Standouts {
                 ? "\(people) people, spanning Congress and the executive branch, disclosed \(ticker) trades the same day"
                 : "\(people) people, spanning Congress and the executive branch, disclosed \(ticker) trades within \(winner.span) days of each other"
             out.append(Standout(category: .crossBranchTicker, trade: anchor, reason: reason))
+        }
+        return out.sorted(by: recencyThenID)
+    }
+
+    // MARK: - Rule 11 · committeeCluster
+
+    /// Distinct members who serve on the same full committee and disclosed a trade in the
+    /// same ticker within a tight window of each other.
+    ///
+    /// Committee co-membership is read verbatim from `Member.committees` — the public
+    /// congress-legislators crosswalk, the same source `CommitteeRoster.swift` already
+    /// uses — never matched against what a committee's jurisdiction might "cover". This
+    /// states two checkable facts side by side (these members share a committee seat;
+    /// they disclosed the same ticker close together in time) and nothing else: no claim
+    /// that the committee relates to the ticker, which is exactly the editorial inference
+    /// `CommitteeRoster.swift`'s own doc comment says this codebase will not make.
+    static let committeeClusterWindowDays = 7
+    static let committeeClusterMinMembers = 2
+
+    public static func committeeCluster(in feed: TradeFeed) -> [Standout] {
+        let committeesByMember = Dictionary(uniqueKeysWithValues: feed.members.map { ($0.id, $0.committees) })
+        guard committeesByMember.values.contains(where: { !$0.isEmpty }) else { return [] }
+
+        var byTicker: [String: [Trade]] = [:]
+        for t in feed.trades {
+            guard let raw = t.ticker, let committees = committeesByMember[t.memberID], !committees.isEmpty
+            else { continue }
+            byTicker[raw.uppercased(), default: []].append(t)
+        }
+
+        var out: [Standout] = []
+        for (ticker, rows) in byTicker {
+            // A member sitting on more than one committee contributes to each committee's
+            // own bucket — the cluster search below runs once per (ticker, committee) pair.
+            var byCommittee: [String: [Trade]] = [:]
+            for t in rows {
+                for committee in committeesByMember[t.memberID] ?? [] {
+                    byCommittee[committee, default: []].append(t)
+                }
+            }
+
+            for (committee, committeeRows) in byCommittee {
+                let latestPerMember = Dictionary(grouping: committeeRows, by: \.memberID)
+                    .compactMap { _, memberRows in memberRows.max(by: { $0.disclosedDate < $1.disclosedDate }) }
+                    .sorted { $0.disclosedDate < $1.disclosedDate }
+                guard latestPerMember.count >= committeeClusterMinMembers else { continue }
+
+                // Same sliding-window search as `tickerCluster`, over this committee's
+                // members only.
+                var left = 0
+                var best: (left: Int, right: Int, span: Int)?
+                for right in latestPerMember.indices {
+                    while latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                            > committeeClusterWindowDays {
+                        left += 1
+                    }
+                    let count = right - left + 1
+                    guard count >= committeeClusterMinMembers else { continue }
+                    let span = latestPerMember[left].disclosedDate.days(to: latestPerMember[right].disclosedDate)
+                    let bestCount = best.map { $0.right - $0.left + 1 } ?? 0
+                    if count > bestCount || (count == bestCount && span < best!.span) {
+                        best = (left, right, span)
+                    }
+                }
+                guard let winner = best else { continue }
+
+                let members = winner.right - winner.left + 1
+                let anchor = latestPerMember[winner.right]
+                let reason = winner.span == 0
+                    ? "\(members) members of \(committee) disclosed \(ticker) trades the same day"
+                    : "\(members) members of \(committee) disclosed \(ticker) trades within \(winner.span) days of each other"
+                out.append(Standout(category: .committeeCluster, trade: anchor, reason: reason))
+            }
         }
         return out.sorted(by: recencyThenID)
     }

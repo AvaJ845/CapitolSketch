@@ -319,6 +319,82 @@ struct StandoutsTests {
         #expect(Standouts.crossBranchTicker(in: feed).isEmpty)
     }
 
+    // MARK: - Rule 11 · committeeCluster
+
+    /// A feed with an explicit committee roster per member, the same reasoning
+    /// `makeMixedFeed` already applies to chambers.
+    private func makeCommitteeFeed(
+        _ trades: [Trade], committees: [String: [String]]
+    ) -> TradeFeed {
+        let members = committees.map { id, names in
+            Member(id: id, bioguideID: id, name: id, state: "CA", district: "1",
+                   chamber: .house, committees: names)
+        }
+        return FeedBuilder.make(trades: trades, members: members, stats: ParseStats(), indexYears: [2026])
+    }
+
+    @Test("Two members of the same committee, same ticker, same week is a committee-cluster standout")
+    func committeeClusterFires() {
+        let feed = makeCommitteeFeed([
+            mk("c-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("c-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-04"),
+        ], committees: ["m1": ["Energy and Commerce"], "m2": ["Energy and Commerce"]])
+        let rows = Standouts.committeeCluster(in: feed)
+        #expect(rows.count == 1)
+        #expect(rows.first?.reason == "2 members of Energy and Commerce disclosed AAA trades within 3 days of each other")
+    }
+
+    @Test("Sharing a ticker without sharing a committee never qualifies")
+    func noSharedCommitteeNeverQualifies() {
+        let feed = makeCommitteeFeed([
+            mk("d-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("d-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-02"),
+        ], committees: ["m1": ["Energy and Commerce"], "m2": ["Financial Services"]])
+        #expect(Standouts.committeeCluster(in: feed).isEmpty)
+        // The same feed is a completely ordinary tickerCluster candidate — just short of
+        // its own 3-member floor, confirming this isn't a data-shape problem.
+        #expect(Standouts.tickerCluster(in: feed).isEmpty)
+    }
+
+    @Test("A member with no committee data (unresolved, or added by an on-device refresh) never qualifies alone")
+    func noCommitteeDataNeverQualifies() {
+        let feed = makeCommitteeFeed([
+            mk("e-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("e-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-02"),
+        ], committees: ["m1": [], "m2": []])
+        #expect(Standouts.committeeCluster(in: feed).isEmpty)
+    }
+
+    @Test("Outside the 7-day window, shared committee membership does not qualify")
+    func committeeClusterRespectsWindow() {
+        let feed = makeCommitteeFeed([
+            mk("f-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("f-m2", member: "m2", ticker: "AAA", disclosed: "2026-04-01"),
+        ], committees: ["m1": ["Energy and Commerce"], "m2": ["Energy and Commerce"]])
+        #expect(Standouts.committeeCluster(in: feed).isEmpty)
+    }
+
+    @Test("A member on two committees can anchor a cluster on either — never double-claims the same pair as one relationship")
+    func memberOnMultipleCommitteesGroupsPerCommittee() {
+        // m1 and m2 share BOTH committees; the pair qualifies once per shared committee,
+        // since each is a separately verifiable fact — not a claim these people have one
+        // combined relationship worth double the weight.
+        let feed = makeCommitteeFeed([
+            mk("g-m1", member: "m1", ticker: "AAA", disclosed: "2026-03-01"),
+            mk("g-m2", member: "m2", ticker: "AAA", disclosed: "2026-03-02"),
+        ], committees: [
+            "m1": ["Energy and Commerce", "Ways and Means"],
+            "m2": ["Energy and Commerce", "Ways and Means"],
+        ])
+        let rows = Standouts.committeeCluster(in: feed)
+        #expect(rows.count == 2)
+        let committeesNamed = Set(rows.map(\.reason).map { reason in
+            reason.replacingOccurrences(of: "2 members of ", with: "")
+                  .replacingOccurrences(of: " disclosed AAA trades within 1 days of each other", with: "")
+        })
+        #expect(committeesNamed == ["Energy and Commerce", "Ways and Means"])
+    }
+
     // MARK: - Headline
 
     @Test("Headline leads with the over-a-year-late count when 3 or more")
