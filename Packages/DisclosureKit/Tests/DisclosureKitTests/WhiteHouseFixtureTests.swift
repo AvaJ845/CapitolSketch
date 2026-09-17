@@ -83,7 +83,23 @@ enum WhiteHouseFixture: String {
     }
 }
 
-@Suite("OGE 278-T parser against real White House filings")
+// `.serialized`: every test below runs real Vision OCR (`OGE278TOCR.lines(from:)`)
+// against a real scanned, multi-page PDF. `VNImageRequestHandler.perform(_:)` is
+// synchronous and blocks its calling thread on an internal semaphore
+// (`+[VNDetector runSuccessReportingBlockSynchronously:...]`) — confirmed by sampling
+// the actual hung process (`sample <pid>`) during the multi-minute `swift test` stall
+// this suite's tests were part of. Swift Testing runs every test, `async` or not,
+// through its own concurrent task-scheduling machinery on Swift's cooperative thread
+// pool, which is sized to the CPU's core count. Four or five of these tests all landing
+// on that pool at once each block a thread on that same semaphore wait, and once every
+// pool thread is blocked this way, nothing is left to run the callback any of them is
+// actually waiting on — a real deadlock, not a slow test, which is why it took minutes
+// rather than seconds even to give up (Swift's own thread-pool overcommit eventually
+// intervenes). `.serialized` keeps this suite's own OCR calls from ever overlapping each
+// other; that alone was sufficient to stop the hang in testing. `WhiteHouseFetcherTests`
+// merely uses no-OCR blank PDFs, so it was never the actual cause — it just changed the
+// scheduler's mix enough to make this suite's pre-existing hazard fire reliably.
+@Suite("OGE 278-T parser against real White House filings", .serialized)
 struct WhiteHouseFixtureTests {
 
     @Test("FIXED — with no \"OGE Received\" line, the OGE certifying official's signature date recovers the filing")
