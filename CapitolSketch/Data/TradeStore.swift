@@ -47,6 +47,28 @@ final class TradeStore {
     /// open a screen that is already one tap from the masthead.
     var pendingStandoutsRoute = false
 
+    /// Opt-in for a weekly local notification restating the snapshot's own headline —
+    /// see `AlertService.scheduleWeeklyDigest`. Independent of the watchlist's own
+    /// notification toggle.
+    var weeklyDigestEnabled: Bool = SharedContainer.defaults.bool(forKey: SharedContainer.Key.weeklyDigestEnabled) {
+        didSet {
+            SharedContainer.defaults.set(weeklyDigestEnabled, forKey: SharedContainer.Key.weeklyDigestEnabled)
+            Task { await self.rescheduleWeeklyDigestIfNeeded() }
+        }
+    }
+
+    /// Re-arms (or cancels) the weekly digest so its content matches the headline this
+    /// device most recently computed. Called on toggle and whenever a fresh compute
+    /// finishes — never on a schedule of its own, since there is no background fetch
+    /// here to keep it fresh between opens.
+    private func rescheduleWeeklyDigestIfNeeded() async {
+        guard weeklyDigestEnabled else {
+            await AlertService.cancelWeeklyDigest()
+            return
+        }
+        await AlertService.scheduleWeeklyDigest(headline: standoutHeadline?.combined)
+    }
+
     /// Recomputes the standout lists off the main actor whenever the feed changes.
     ///
     /// Seven passes over ~10k rows measured at a few milliseconds on an iPhone 17 Pro
@@ -88,6 +110,7 @@ final class TradeStore {
             self.compositionByAssetType = computed.byAssetType
             self.standoutHeadline = computed.headline
             self.standoutsLoading = false
+            Task { await self.rescheduleWeeklyDigestIfNeeded() }
             #if DEBUG
             let ms = Int(Date().timeIntervalSince(started) * 1000)
             print("[Standouts] \(snapshot.trades.count) trades computed in \(ms) ms")

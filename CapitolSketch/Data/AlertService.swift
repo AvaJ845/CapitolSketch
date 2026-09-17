@@ -76,4 +76,45 @@ enum AlertService {
     static func clearBadge() async {
         try? await UNUserNotificationCenter.current().setBadgeCount(0)
     }
+
+    /// A weekly local notification restating the snapshot's own headline — the same
+    /// plain-language fact `StandoutsView` leads with, `Standouts.headline(in:)`, never
+    /// anything computed just for this. No server, no `BGTaskScheduler`: the trigger is a
+    /// fixed weekly calendar alarm, and the *content* is only ever as fresh as the last
+    /// time this device recomputed it — the same "no fetch here" honesty every other
+    /// on-device-only feature in this app already carries. Called every time the feed's
+    /// headline changes, so the next scheduled firing reflects whatever the reader's
+    /// device last saw, not what it saw the day this was turned on.
+    ///
+    /// A fixed identifier (`weeklyDigest`) means adding a request replaces the pending
+    /// one rather than stacking a second alarm.
+    static func scheduleWeeklyDigest(headline: String?) async {
+        guard let headline, await authorizationStatus() == .authorized else {
+            await cancelWeeklyDigest()
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "This week in disclosures"
+        content.body = headline
+        content.sound = .default
+
+        // Monday, 9:00 AM local time, repeating. `DateComponents.weekday` is 1-indexed
+        // from Sunday, so 2 is Monday.
+        var when = DateComponents()
+        when.weekday = 2
+        when.hour = 9
+        when.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: when, repeats: true)
+
+        let request = UNNotificationRequest(
+            identifier: "weeklyDigest", content: content, trigger: trigger
+        )
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    static func cancelWeeklyDigest() async {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: ["weeklyDigest"])
+    }
 }

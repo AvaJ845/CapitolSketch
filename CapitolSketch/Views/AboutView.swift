@@ -65,7 +65,7 @@ struct AboutView: View {
                     }
                 }
 
-                Section("Alerts") {
+                Section {
                     Toggle("Notify me about watchlist trades", isOn: Binding(
                         get: { watchlist.notificationsEnabled },
                         set: { newValue in
@@ -89,6 +89,27 @@ struct AboutView: View {
                         .foregroundStyle(Ink.lag)
                         .listRowBackground(Ink.card)
                     }
+
+                    Toggle("Weekly snapshot summary", isOn: Binding(
+                        get: { store.weeklyDigestEnabled },
+                        set: { newValue in
+                            store.weeklyDigestEnabled = newValue
+                            if newValue {
+                                Task {
+                                    _ = await AlertService.requestAuthorization()
+                                    notificationStatus = await AlertService.authorizationStatus()
+                                }
+                            }
+                        }
+                    ))
+                    .listRowBackground(Ink.card)
+                } header: {
+                    Text("Alerts")
+                } footer: {
+                    Text("A once-a-week notification restating the same plain-language "
+                         + "headline the Standouts screen leads with — nothing computed "
+                         + "just for this. Only as current as the last time you opened the "
+                         + "app: there is no server and no background fetch behind it.")
                 }
 
                 Section("Data") {

@@ -20,6 +20,10 @@ enum SharedContainer {
         static let followedMembers = "followedMembers"
         static let seenRowIDs = "seenRowIDs"
         static let notifyEnabled = "notificationsEnabled"
+        /// Opt-in for the weekly local notification restating the snapshot's own
+        /// headline (`AlertService.scheduleWeeklyDigest`). Independent of
+        /// `notifyEnabled`, which is watchlist-specific.
+        static let weeklyDigestEnabled = "weeklyDigestEnabled"
         static let appearance = "appearance"
         /// The app build the on-device feed cache was last written by. A build change
         /// means a new bundled snapshot that may carry parser or data fixes, so the
