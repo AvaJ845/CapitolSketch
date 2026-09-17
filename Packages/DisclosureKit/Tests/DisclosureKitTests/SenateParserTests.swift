@@ -19,12 +19,12 @@ enum SenateFixture: String {
         return text
     }
 
-    func ref(paper: Bool = false) -> SenateFilingRef {
+    func ref(paper: Bool = false, isAmendment: Bool = false) -> SenateFilingRef {
         SenateFilingRef(
             uuid: rawValue.components(separatedBy: ".").last ?? rawValue,
             memberName: "Fixture Senator", memberID: "x-fixture",
             filedOn: CalendarDate(year: 2026, month: 8, day: 28),
-            isPaper: paper
+            isPaper: paper, isAmendment: isAmendment
         )
     }
 }
@@ -106,5 +106,25 @@ struct SenateParserTests {
         #expect(rows.contains { $0.isAmendment })                // "(Amendment 1)"
         #expect(rows.allSatisfy { $0.uuid.count == 36 })
         #expect(rows.allSatisfy { $0.filedOn != nil })
+    }
+
+    @Test("FIXED — a filing's isAmendment flag reaches the trades it produces, not just the filing ref")
+    func isAmendmentReachesTrades() {
+        // SenateFilingIndex has flagged isAmendment on the filing row since before this
+        // fix; SenateFetcher already threaded it onto SenateFilingRef. But nothing
+        // applied it to the Trade rows SenatePTRParser actually builds — every Senate
+        // trade silently read isAmendment == false regardless of the filing it came
+        // from, which is exactly the gap PTRFetcher.possibleDuplicateAmendments needs
+        // real data in to do anything useful.
+        let plain = SenatePTRParser.parse(
+            reportHTML: SenateFixture.coons.html, filing: SenateFixture.coons.ref()
+        )
+        #expect(plain.trades.allSatisfy { !$0.isAmendment })
+
+        let amended = SenatePTRParser.parse(
+            reportHTML: SenateFixture.coons.html, filing: SenateFixture.coons.ref(isAmendment: true)
+        )
+        #expect(!amended.trades.isEmpty)
+        #expect(amended.trades.allSatisfy { $0.isAmendment })
     }
 }

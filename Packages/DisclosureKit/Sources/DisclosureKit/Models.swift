@@ -108,13 +108,21 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
     public let documentURL: URL?
     /// Anything the parser was unsure about. Carried through rather than discarded.
     public let warnings: [String]
+    /// True when the filing that produced this row identifies itself as a correction —
+    /// House's per-row "Filing Status: Amended" field, or Senate's own eFD listing
+    /// flagging the document as an amendment. Not a claim about which other row (if any)
+    /// this one supersedes: no source this app reads states that link, and guessing it
+    /// would risk silently merging two unrelated disclosures. See
+    /// `PTRFetcher.unverifiedAmendments(in:)` for how this is used to report, not resolve,
+    /// the residual uncertainty.
+    public let isAmendment: Bool
 
     public init(
         id: String, memberID: String, memberName: String, owner: TradeOwner,
         asset: String, ticker: String?, assetType: String?, txType: TradeType,
         txDate: CalendarDate, disclosedDate: CalendarDate, amount: DisclosedAmount,
         filingDescription: String?, filingID: String, documentURL: URL?,
-        warnings: [String] = []
+        warnings: [String] = [], isAmendment: Bool = false
     ) {
         self.id = id
         self.memberID = memberID
@@ -131,6 +139,7 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
         self.filingID = filingID
         self.documentURL = documentURL
         self.warnings = warnings
+        self.isAmendment = isAmendment
     }
 
     /// A copy with selected fields replaced; any argument left `nil` keeps this value's
@@ -156,7 +165,8 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
         filingDescription: String? = nil,
         filingID: String? = nil,
         documentURL: URL? = nil,
-        warnings: [String]? = nil
+        warnings: [String]? = nil,
+        isAmendment: Bool? = nil
     ) -> Trade {
         Trade(
             id: id ?? self.id,
@@ -173,7 +183,8 @@ public struct Trade: Codable, Identifiable, Hashable, Sendable {
             filingDescription: filingDescription ?? self.filingDescription,
             filingID: filingID ?? self.filingID,
             documentURL: documentURL ?? self.documentURL,
-            warnings: warnings ?? self.warnings
+            warnings: warnings ?? self.warnings,
+            isAmendment: isAmendment ?? self.isAmendment
         )
     }
 
@@ -330,6 +341,15 @@ public struct TradeFeed: Codable, Sendable {
 
     public let schemaVersion: Int
     public let generatedAt: Date
+    /// When the shipped snapshot itself was built — House, Senate, Executive and Cabinet
+    /// all together. Unlike `generatedAt`, an on-device refresh never touches this: House
+    /// is the only source that ever refreshes on device (`IncrementalRefresher` is
+    /// House-only), and `FeedBuilder.merge` bumps `generatedAt` to "now" on every such
+    /// refresh so the freshest-wins comparison in `TradeStore.newestFeedOnDisk` keeps
+    /// working — which would otherwise make Senate/Executive/Cabinet data look exactly as
+    /// fresh as the House row that was just added. This field is what lets the Data
+    /// Quality screen say plainly which sources that "as of" date actually describes.
+    public let seedGeneratedAt: Date
     /// Filing years covered, so an incremental refresh knows what it already has.
     public let indexYears: [Int]
     public let source: String
@@ -342,13 +362,18 @@ public struct TradeFeed: Codable, Sendable {
 
     public init(
         schemaVersion: Int = TradeFeed.currentSchemaVersion,
-        generatedAt: Date, indexYears: [Int], source: String,
+        generatedAt: Date, seedGeneratedAt: Date? = nil, indexYears: [Int], source: String,
         chambersCovered: [Chamber] = [.house],
         members: [Member], trades: [Trade], stats: ParseStats,
         nameToMemberID: [String: String] = [:]
     ) {
         self.schemaVersion = schemaVersion
         self.generatedAt = generatedAt
+        // Defaults to `generatedAt` — correct for a fresh `seedgen` build (the two are
+        // the same moment) and a safe reading for a feed decoded from before this field
+        // existed (nothing to tell the two apart, so assume the whole thing is as fresh
+        // as its `generatedAt` said, the same claim the app made before this field existed).
+        self.seedGeneratedAt = seedGeneratedAt ?? generatedAt
         self.indexYears = indexYears
         self.source = source
         self.chambersCovered = chambersCovered

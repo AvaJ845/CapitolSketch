@@ -217,6 +217,17 @@ func makeMember(
 }
 
 /// Removes restatements. Amended filings repeat transactions already disclosed.
+///
+/// An amendment that restates a transaction with every fingerprint field unchanged
+/// (confirmed against a real one — House docID 20033759, which added only a "Comments"
+/// annotation and a row ID Congress does not print on the un-amended original) collapses
+/// here, into whichever copy appeared first — the seed's own row when this runs inside
+/// `FeedBuilder.merge`, so an already-shown trade keeps its filing ID and link rather
+/// than silently swapping to the amendment's on every refresh. An amendment that changes
+/// a fingerprint field (a corrected date or bracket) does *not* collide here — nothing in
+/// any source this app reads says which earlier row such a correction replaces, so
+/// guessing that link is not attempted; both rows survive as two disclosures. See
+/// `possibleDuplicateAmendments(in:)` for surfacing that residual case instead of hiding it.
 public func deduplicate(_ trades: [Trade]) -> [Trade] {
     var seen = Set<String>()
     var out: [Trade] = []
@@ -229,4 +240,41 @@ public func deduplicate(_ trades: [Trade]) -> [Trade] {
         if seen.insert(key).inserted { out.append(t) }
     }
     return out
+}
+
+/// A looser identity than `transactionFingerprint` — ticker, asset type, transaction
+/// type, owner and the *transaction* date, but not the amount, which is what a bracket
+/// correction actually changes.
+///
+/// The transaction date stays in this key deliberately, even though a correction could
+/// in principle change it too — a first version of this excluded it and, run against the
+/// real production feed, flagged 255 rows, nearly all of them ordinary same-ticker
+/// repeat trading (a senator dollar-cost-averaging into the same ETF every few days is
+/// indistinguishable from a correction once the date is dropped from the key). Keeping
+/// the date makes this precise rather than merely cautious: two rows that claim to be
+/// the exact same day's transaction but disagree on the amount is a real, narrow signal;
+/// "this member traded this ticker more than once" is not.
+private func correctionIdentity(_ t: Trade) -> String {
+    [t.memberID, (t.ticker ?? t.asset).uppercased(), t.assetType ?? "",
+     t.txType.rawValue, t.owner.rawValue, t.txDate.iso].joined(separator: "|")
+}
+
+/// Rows `deduplicate(_:)` could not resolve because their full fingerprint genuinely
+/// differs — the amount changed — but that still share a member, ticker, asset type,
+/// transaction type, owner and transaction *date* with another surviving row, where at
+/// least one of the group is flagged `isAmendment`.
+///
+/// This is the case `deduplicate(_:)`'s own doc comment names and does not attempt to
+/// fix: an amendment correcting a fingerprint field has no stated link, in any source
+/// this app reads, to the specific row it corrects, so both survive as separate
+/// disclosures — one of them likely stale or an outright duplicate of real-world intent,
+/// but which one is not something to guess at. Called after de-duplication, over the
+/// feed's full trade list, so it can be surfaced (a `seedgen` log line today; a UI
+/// affordance would be a separate, larger change) rather than silently trusted either way.
+public func possibleDuplicateAmendments(in dedupedTrades: [Trade]) -> [Trade] {
+    Dictionary(grouping: dedupedTrades, by: correctionIdentity)
+        .values
+        .filter { group in group.count > 1 && group.contains(where: \.isAmendment) }
+        .flatMap { $0 }
+        .sorted { $0.id < $1.id }
 }

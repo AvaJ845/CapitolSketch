@@ -104,7 +104,8 @@ public enum SenatePTRParser {
                 filingDescription: description.isEmpty ? nil : description,
                 filingID: filing.uuid,
                 documentURL: filing.documentURL,
-                warnings: rowWarnings
+                warnings: rowWarnings,
+                isAmendment: filing.isAmendment
             ))
         }
 

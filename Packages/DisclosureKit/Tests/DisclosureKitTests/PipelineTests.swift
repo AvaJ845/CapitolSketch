@@ -230,16 +230,20 @@ struct MemberDirectoryTests {
 struct FeedTests {
 
     private func trade(
-        ticker: String, type: String, txType: TradeType = .buy, owner: TradeOwner = .self
+        ticker: String, type: String, txType: TradeType = .buy, owner: TradeOwner = .self,
+        txDate: String = "2026-07-24",
+        amount: DisclosedAmount = DisclosedAmount(kind: .range, lowCents: 100_100, highCents: 1_500_000,
+                                                   label: "$1,001 – $15,000"),
+        filingID: String = "20035143", isAmendment: Bool = false
     ) -> Trade {
         Trade(
-            id: "t-\(ticker)-\(type)", memberID: "P000197", memberName: "Nancy Pelosi",
+            id: "t-\(ticker)-\(type)-\(filingID)", memberID: "P000197", memberName: "Nancy Pelosi",
             owner: owner, asset: "\(ticker) [\(type)]", ticker: ticker, assetType: type,
-            txType: txType, txDate: CalendarDate(iso: "2026-07-24")!,
+            txType: txType, txDate: CalendarDate(iso: txDate)!,
             disclosedDate: CalendarDate(iso: "2026-08-21")!,
-            amount: DisclosedAmount(kind: .range, lowCents: 100_100, highCents: 1_500_000,
-                                    label: "$1,001 – $15,000"),
-            filingDescription: nil, filingID: "20035143", documentURL: nil
+            amount: amount,
+            filingDescription: nil, filingID: filingID, documentURL: nil,
+            isAmendment: isAmendment
         )
     }
 
@@ -273,10 +277,127 @@ struct FeedTests {
         #expect(merged.trades.count == 2)
     }
 
+    @Test("FIXED — an on-device refresh advances generatedAt but never seedGeneratedAt")
+    func mergeNeverAdvancesSeedGeneratedAt() {
+        // Before this fix there was only one timestamp, and every on-device House
+        // refresh bumped it to "now" — which made Senate/Executive/Cabinet data look
+        // exactly as current as the House row that was just added, the freshness
+        // asymmetry the Data Quality screen now has to speak plainly about.
+        let buildTime = Date(timeIntervalSince1970: 1_780_000_000)
+        let seed = FeedBuilder.make(
+            trades: [trade(ticker: "BE", type: "ST")],
+            members: [Member(id: "P000197", bioguideID: "P000197", name: "Nancy Pelosi",
+                             state: "CA", district: "11", chamber: .house)],
+            stats: ParseStats(filingsProcessed: 1, tradesParsed: 1),
+            indexYears: [2025, 2026],
+            chambersCovered: [.house, .senate, .executive],
+            source: TradeFeed.bothChambersSource,
+            generatedAt: buildTime
+        )
+        #expect(seed.seedGeneratedAt == buildTime) // fresh build: the two agree
+
+        let refreshTime = buildTime.addingTimeInterval(30 * 24 * 60 * 60) // a month later
+        let merged = FeedBuilder.merge(
+            seed: seed, newTrades: [trade(ticker: "NVDA", type: "ST")], newMembers: [],
+            generatedAt: refreshTime
+        )
+        #expect(merged.generatedAt == refreshTime)
+        #expect(merged.seedGeneratedAt == buildTime) // unchanged by the refresh
+
+        // Merging again, later still, must not let seedGeneratedAt drift either — it
+        // only ever comes from the original build, all the way down the refresh chain.
+        let secondRefresh = FeedBuilder.merge(
+            seed: merged, newTrades: [trade(ticker: "AAPL", type: "ST")], newMembers: [],
+            generatedAt: refreshTime.addingTimeInterval(7 * 24 * 60 * 60)
+        )
+        #expect(secondRefresh.seedGeneratedAt == buildTime)
+    }
+
+    @Test("A feed decoded from before seedGeneratedAt existed falls back to generatedAt")
+    func seedGeneratedAtDefaultsWhenAbsent() {
+        // TradeFeed relies on the same build-bump cache invalidation Trade.isAmendment
+        // does rather than a custom decoder, so this only exercises the in-memory
+        // default — a real pre-this-fix cache fails to decode `try?`-safely instead, and
+        // is dropped in favor of the bundled seed the next time the app builds.
+        let t = Date(timeIntervalSince1970: 1_780_000_000)
+        let feed = TradeFeed(
+            generatedAt: t, indexYears: [2026], source: "test",
+            members: [], trades: [], stats: ParseStats()
+        )
+        #expect(feed.seedGeneratedAt == t)
+    }
+
     @Test("De-duplication removes a restated row from an amended filing")
     func dedupRemovesRestatements() {
         let rows = [trade(ticker: "BE", type: "ST"), trade(ticker: "BE", type: "ST")]
         #expect(deduplicate(rows).count == 1)
+    }
+
+    @Test("An amendment that restates its original unchanged still collapses to one row — confirmed against a real filing (House docID 20033759)")
+    func dedupCollapsesIdenticalAmendment() {
+        // The amendment adds a "Comments" annotation and a row ID the original never
+        // shows, but every fingerprint field (ticker, type, date, amount, owner) is
+        // identical — exactly what House docID 20033759 does to Rouzer's Boeing sale.
+        let original = trade(ticker: "BA", type: "ST", filingID: "20033758", isAmendment: false)
+        let amendment = trade(ticker: "BA", type: "ST", filingID: "20033759", isAmendment: true)
+        let deduped = deduplicate([original, amendment])
+        #expect(deduped.count == 1)
+        // The earlier-seen copy wins — FeedBuilder.merge relies on this so an
+        // already-shown trade keeps its filing ID rather than swapping on every refresh.
+        #expect(deduped.first?.filingID == "20033758")
+    }
+
+    @Test("possibleDuplicateAmendments is silent when nothing is left unresolved")
+    func possibleDuplicateAmendmentsSilentByDefault() {
+        // Two unrelated tickers: no shared identity, nothing to flag.
+        let rows = [trade(ticker: "BA", type: "ST"), trade(ticker: "NVDA", type: "ST")]
+        #expect(possibleDuplicateAmendments(in: deduplicate(rows)).isEmpty)
+
+        // Same ticker/type/owner and an amendment, but an identical fingerprint —
+        // de-duplication already resolved this to one row, so there is nothing left to
+        // flag; a corroborated correction is not the same thing as an unresolved one.
+        let identical = [
+            trade(ticker: "BA", type: "ST", filingID: "1", isAmendment: false),
+            trade(ticker: "BA", type: "ST", filingID: "2", isAmendment: true),
+        ]
+        #expect(possibleDuplicateAmendments(in: deduplicate(identical)).isEmpty)
+
+        // Same shape again, but neither row is flagged as an amendment — two distinct,
+        // unrelated disclosures of the same ticker/type on different dates is normal
+        // and not a correction-tracking problem.
+        let unrelated = [
+            trade(ticker: "BA", type: "ST", txDate: "2026-01-01", filingID: "1"),
+            trade(ticker: "BA", type: "ST", txDate: "2026-06-01", filingID: "2"),
+        ]
+        #expect(possibleDuplicateAmendments(in: deduplicate(unrelated)).isEmpty)
+    }
+
+    @Test("possibleDuplicateAmendments surfaces a correction dedup could not resolve")
+    func possibleDuplicateAmendmentsFlagsRealRisk() {
+        // Same member, ticker, type and owner — but the amendment changed the amount
+        // bracket, so the two fingerprints genuinely differ and de-duplication cannot
+        // tell which row the correction replaces. This is the case
+        // `deduplicate(_:)`'s own doc comment names as not attempted: both rows survive,
+        // and this is how that residual risk gets surfaced instead of hidden.
+        let original = trade(
+            ticker: "BA", type: "ST",
+            amount: DisclosedAmount(kind: .range, lowCents: 100_100, highCents: 1_500_000,
+                                    label: "$1,001 – $15,000"),
+            filingID: "1", isAmendment: false
+        )
+        let amendment = trade(
+            ticker: "BA", type: "ST",
+            amount: DisclosedAmount(kind: .range, lowCents: 5_000_100, highCents: 10_000_000,
+                                    label: "$50,001 – $100,000"),
+            filingID: "2", isAmendment: true
+        )
+        let deduped = deduplicate([original, amendment])
+        #expect(deduped.count == 2) // different fingerprints — dedup cannot merge them
+
+        let flagged = possibleDuplicateAmendments(in: deduped)
+        #expect(flagged.count == 2)
+        #expect(flagged.contains { $0.filingID == "1" })
+        #expect(flagged.contains { $0.filingID == "2" })
     }
 
     @Test("Coverage stats separate scanned filings from parser failures")

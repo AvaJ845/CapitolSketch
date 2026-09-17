@@ -12,6 +12,7 @@ enum Fixture: String, CaseIterable {
     case issaLargeBracket = "issa-25m-bracket.2025.20030181"
     case cisnerosAmended = "cisneros-amended-multipage.2025.20031022"
     case rouzerAmended = "rouzer-amended.2026.20033759"
+    case rouzerOriginal = "rouzer-original.2026.20033758"
     case millerExactCents = "miller-exact-cents.2025.20030236"
     case scannedNoText = "scanned-no-text.2025.8220731"
     case bresnahanMultipage = "bresnahan-multipage.2025.20024346"

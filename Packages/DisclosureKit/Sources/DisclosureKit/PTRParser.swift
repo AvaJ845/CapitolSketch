@@ -114,6 +114,14 @@ public enum PTRParser {
     /// Owner codes, which the renderer sometimes repeats and sometimes puts on the
     /// line above the asset they belong to.
     private static let leadingOwners = try! NSRegularExpression(pattern: #"^\s*((?:SP|JT|DC)\s+)+"#)
+    /// An amended row's own leading numeric ID — confirmed against a real amendment
+    /// (House docID 20033759): the "ID" table column, printed only when a row has been
+    /// through a correction, is stitched onto the front of the asset text by the layout,
+    /// with no delimiter of its own. The row's non-amended predecessor for the same
+    /// transaction shows no ID at all, so this is only ever seen here — never something
+    /// a legitimate asset name would start with, since PDFKit's own text linearisation
+    /// only produces this for a row already confirmed `isAmendment`.
+    private static let leadingRowID = try! NSRegularExpression(pattern: #"^\d{6,}\s+"#)
 
     private static let boilerplatePrefixes = [
         "Filing ID #", "Name:", "Status:", "State/District:", "Initial Public Offering",
@@ -225,6 +233,12 @@ public enum PTRParser {
         var awaiting: (index: Int, kind: PendingAmount)?
         /// Owner codes seen on a line that was not itself an asset line.
         var pendingOwner: TradeOwner?
+        /// "Filing Status: Amended", read per row (the form asks it once per transaction,
+        /// not once per document — see `PTRParser`'s own note above `filingStatusLine`).
+        /// Applied the same way a pending owner or description is: to the row just
+        /// emitted when one exists and nothing has started buffering since, otherwise
+        /// held for the row about to be built.
+        var pendingIsAmendment = false
         var fileWarnings: [String] = []
 
         mutating func finish() {
@@ -343,13 +357,21 @@ public enum PTRParser {
             return
         }
 
-        // "FILING STATUS: New" / "DESCRIPTION: Purchased 10,000 shares."
+        // "FILING STATUS: New" / "FILING STATUS: Amended" / "DESCRIPTION: Purchased
+        // 10,000 shares." The form asks Filing Status once per *transaction*, not once
+        // per document — a single filing can restate some rows as "Amended" and others
+        // as "New" (confirmed against a real multi-asset filing) — so this is read the
+        // same row-scoped way a description or owner code is, never assumed to describe
+        // the whole document.
         if let m = labelLine.firstMatch(in: line, range: line.nsRange),
            let initial = line.substring(m, 1) {
             let body = (line.substring(m, 3) ?? "").trimmingCharacters(in: .whitespaces)
             if initial == "D", !body.isEmpty {
                 attachDescription(body, to: &state)
                 state.continuingDescription = !endsSentence(body)
+            } else if initial == "F", body == "Amended" {
+                attachIsAmendment(true, to: &state)
+                state.continuingDescription = false
             } else {
                 state.continuingDescription = false
             }
@@ -400,12 +422,12 @@ public enum PTRParser {
         // name or en-dash that precedes the anchor.
         let head = (line as NSString).substring(to: m.range.location)
             .trimmingCharacters(in: .whitespaces)
-        let assetText = trimToLastAsset(
+        let assetText = stripLeadingRowID(trimToLastAsset(
             (state.assetLines + [head])
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
-        )
+        ))
 
         let code = line.substring(m, 1) ?? "P"
         let tail = (line.substring(m, 4) ?? "").trimmingCharacters(in: .whitespaces)
@@ -442,13 +464,15 @@ public enum PTRParser {
             filingDescription: state.pendingDescription,
             filingID: state.filing.docID,
             documentURL: state.filing.documentURL,
-            warnings: warnings
+            warnings: warnings,
+            isAmendment: state.pendingIsAmendment
         )
         state.trades.append(trade)
 
         if pendingKind != .nothing {
             state.awaiting = (index: state.trades.count - 1, kind: pendingKind)
         }
+        state.pendingIsAmendment = false
         state.assetLines.removeAll()
         state.pendingDescription = nil
         state.pendingOwner = nil
@@ -549,6 +573,14 @@ public enum PTRParser {
 
     // MARK: - Field extraction
 
+    /// Strips the ID column's number when the layout has glued it onto the front of the
+    /// asset text with nothing separating them — see `leadingRowID`. Run before
+    /// `splitOwner`, since the ID (when present) precedes any owner code in the row.
+    private static func stripLeadingRowID(_ text: String) -> String {
+        guard let m = leadingRowID.firstMatch(in: text, range: text.nsRange) else { return text }
+        return (text as NSString).substring(from: m.range.length)
+    }
+
     private static func splitOwner(_ text: String) -> (TradeOwner?, String) {
         guard let m = leadingOwners.firstMatch(in: text, range: text.nsRange) else {
             return (nil, text)
@@ -602,6 +634,19 @@ public enum PTRParser {
 
     private static func appendWarning(_ w: String, to trade: inout Trade) {
         trade = trade.with(warnings: trade.warnings + [w])
+    }
+
+    // MARK: - Filing status
+
+    /// Same before/after-the-anchor ambiguity `attachDescription` already resolves: the
+    /// label can land right after the row it describes (a short, single-line asset) or
+    /// before it (a wrapped asset name pushes the row's own anchor line further down).
+    private static func attachIsAmendment(_ value: Bool, to state: inout State) {
+        if state.assetLines.isEmpty, let last = state.trades.indices.last {
+            state.trades[last] = state.trades[last].with(isAmendment: value)
+        } else {
+            state.pendingIsAmendment = value
+        }
     }
 
     // MARK: - Descriptions

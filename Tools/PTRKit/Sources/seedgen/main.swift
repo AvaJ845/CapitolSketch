@@ -285,6 +285,17 @@ let unresolved = allMembers.filter { $0.bioguideID == nil }
 if !unresolved.isEmpty {
     log("NO BIOGUIDE ID (\(unresolved.count)): " + unresolved.map(\.name).joined(separator: ", "))
 }
+let dupeAmendments = possibleDuplicateAmendments(in: deduped)
+if !dupeAmendments.isEmpty {
+    log("AMENDMENTS NOT CORROBORATED (\(dupeAmendments.count) rows): a member has more than "
+        + "one surviving row for the same ticker/type/owner, at least one an amendment, but "
+        + "the date or amount differs enough that de-dup could not tell which one the "
+        + "amendment corrects — both are shown as filed; verify manually:")
+    for t in dupeAmendments.prefix(20) {
+        log("   \(t.memberName) — \(t.displaySymbol) \(t.txDate.iso) \(t.amount.label) "
+            + "(filing \(t.filingID), amended=\(t.isAmendment))")
+    }
+}
 if senateOutput != nil {
     let senators = deduped.filter { t in allMembers.contains { $0.id == t.memberID && $0.chamber == .senate } }
     log("SENATE: \(senators.count) rows in the final feed after de-dup.")

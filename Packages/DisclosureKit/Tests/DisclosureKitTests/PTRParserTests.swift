@@ -243,6 +243,48 @@ struct PTRParserTests {
         #expect(r.trades.allSatisfy { $0.amount.kind != .unknown })
     }
 
+    @Test("Filing Status is read per row, not assumed for the whole document")
+    func filingStatusIsPerRowNotPerDocument() {
+        // cisnerosAmended is a real, 63-row, 8-page multi-asset filing, and only one of
+        // those 63 rows is itself an amendment — confirmed by reading the real PDF text
+        // directly before writing this test: Ralliant Corporation (RAL), the one row
+        // whose own "Filing Status" prints "Amended"; every other row prints "New". The
+        // form asks the question once per *transaction*, not once per document. Getting
+        // this wrong — assuming one amended row anywhere means the whole filing is an
+        // amendment — would flag 62 ordinary disclosures for manual review for no reason.
+        let r = Fixture.cisnerosAmended.parse()
+        #expect(r.trades.count == 63)
+        let amended = r.trades.filter(\.isAmendment)
+        #expect(amended.count == 1)
+        #expect(amended.first?.ticker == "RAL")
+    }
+
+    @Test("FIXED — a real amendment is flagged, and its row ID no longer leaks into the asset name")
+    func realAmendmentIsFlaggedAndAssetIsClean() {
+        // Two real, paired filings for the same disclosed trade: David Rouzer's Boeing
+        // sale, filed once (docID 20033758, "Filing Status: New") and refiled the same
+        // day with a correction (docID 20033759, "Filing Status: Amended") that adds a
+        // "Comments: Sold at a $1,440 loss." annotation and, only on the amended copy, a
+        // per-row ID ("2000152831") the House Clerk's own layout glues directly onto the
+        // front of the asset text with no separator. Before this fix that ID survived
+        // into `asset` verbatim; now it is recognised and stripped.
+        let original = Fixture.rouzerOriginal.parse()
+        let amended = Fixture.rouzerAmended.parse()
+
+        #expect(original.trades.count == 1)
+        #expect(original.trades.first?.isAmendment == false)
+        #expect(original.trades.first?.asset == "Boeing Company (BA) [ST]")
+
+        #expect(amended.trades.count == 1)
+        #expect(amended.trades.first?.isAmendment == true)
+        #expect(amended.trades.first?.asset == "Boeing Company (BA) [ST]")
+        #expect(amended.trades.first?.ticker == "BA")
+
+        // Same underlying transaction by every field the form states.
+        #expect(original.trades.first?.txDate == amended.trades.first?.txDate)
+        #expect(original.trades.first?.amount.label == amended.trades.first?.amount.label)
+    }
+
     @Test("A long multi-page filing parses every page")
     func longMultipageFiling() {
         let r = Fixture.bresnahanMultipage.parse()
