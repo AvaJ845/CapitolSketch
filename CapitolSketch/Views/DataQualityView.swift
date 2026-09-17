@@ -58,6 +58,19 @@ struct DataQualityView: View {
         return first == last ? "\(first)" : "\(first)–\(last)"
     }
 
+    /// Pulled out of `body`: a `ShareLink` item built inline, alongside everything else
+    /// this screen's `List` already type-checks, was enough extra expression complexity
+    /// to blow past the compiler's reasonable-time budget for an unrelated string
+    /// concatenation elsewhere in the same view.
+    private var csvExportItem: SnapshotCSVExport {
+        SnapshotCSVExport(
+            trades: trades,
+            chamberByMemberID: Dictionary(uniqueKeysWithValues: store.members.map { ($0.id, $0.chamber) }),
+            partyByMemberID: Dictionary(uniqueKeysWithValues: store.members.map { ($0.id, $0.party) }),
+            generatedAt: store.generatedAt
+        )
+    }
+
     var body: some View {
         List {
             if trades.isEmpty {
@@ -182,6 +195,22 @@ struct DataQualityView: View {
                 }
             } header: {
                 Text("Last reached the Clerk")
+            }
+
+            if !trades.isEmpty {
+                Section {
+                    ShareLink(
+                        item: csvExportItem,
+                        preview: SharePreview("CapitolSketch disclosures (CSV)")
+                    ) {
+                        Label("Export this snapshot (CSV)", systemImage: "square.and.arrow.up")
+                    }
+                    .listRowBackground(Ink.card)
+                } footer: {
+                    Text("Every disclosed transaction currently loaded, including the same "
+                         + "flags this app shows inline — an unreadable amount, an impossible "
+                         + "date, an amendment — so nothing here reads cleaner than the app does.")
+                }
             }
 
             Section {
